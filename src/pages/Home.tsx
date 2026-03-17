@@ -271,11 +271,11 @@ export default function Home() {
           </div>
 
           {/* Badge */}
-          <div className="hero-badge mono" style={{
+          {/* <div className="hero-badge mono" style={{
             position: 'absolute', top: '2rem', right: '2rem',
             background: '#C8F135', color: '#000', fontSize: '.65rem', fontWeight: 700,
             padding: '.4rem .8rem', borderRadius: 100, letterSpacing: '.1em',
-          }}>LIVE PREVIEW</div>
+          }}>LIVE PREVIEW</div> */}
 
           {/* Float card */}
           <div className="hero-float" style={{
