@@ -1,5 +1,6 @@
 import type { Workout, GenerateWorkoutBody } from '../types/workout';
-const API_BASE_URL = "https://fit-forge-backend.vercel.app/api"
+// const API_BASE_URL = "https://fit-forge-backend.vercel.app/api"
+const API_BASE_URL = "http://localhost:3001";
 const api = {
   generateWorkout: async (body: GenerateWorkoutBody): Promise<Workout> => {
     const response = await fetch(`${API_BASE_URL}/generate-workout`, {

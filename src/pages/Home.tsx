@@ -91,6 +91,7 @@ export default function Home() {
     return () => observer.disconnect();
   }, []);
 
+  
   return (
     <div style={{ background: '#0E0E0E', color: '#FFFFFF', fontFamily: "'DM Sans', sans-serif", overflowX: 'hidden', minHeight: '100vh' }}>
 
@@ -177,12 +178,14 @@ export default function Home() {
       ══════════════════════════════════════ */}
       <nav style={{
         position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100,
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         padding: '0 clamp(1.5rem,5vw,4rem)', height: 64,
         borderBottom: '1px solid #272727',
         background: 'rgba(14,14,14,0.88)', backdropFilter: 'blur(16px)',
-      }}>
-        <div className="display" style={{ fontSize: '1.8rem', letterSpacing: '.05em', color: '#C8F135' }}><FitOrge height={50}/>
+        
+      }}
+        className='flex items-center justify-between bg-[rgba(14,14,14,0.88)]'
+      >
+        <div className="display" style={{ fontSize: '1.8rem', letterSpacing: '.05em', color: '#C8F135' }}><FitOrge height={50} />
         </div>
 
         <ul className="nav-links mono" style={{ display: 'flex', gap: '2rem', listStyle: 'none' }}>
@@ -191,11 +194,24 @@ export default function Home() {
           ))}
         </ul>
 
-        <a href="/workout" className="btn-primary mono" style={{
-          background: '#C8F135', color: '#000', fontWeight: 700, fontSize: '.78rem',
-          padding: '.55rem 1.4rem', borderRadius: 100, textDecoration: 'none',
-          letterSpacing: '.06em', textTransform: 'uppercase',
-        }}>Start Training</a>
+        <div className='flex gap-1 items-center'>
+
+          <a href="/login" className="btn-primary mono" style={{
+            background: '#C8F135', color: '#000', fontWeight: 700, fontSize: '.78rem',
+            padding: '.55rem 1.4rem', borderRadius: 100, textDecoration: 'none',
+            letterSpacing: '.06em', textTransform: 'uppercase',
+          }}>Login</a>
+          <span className='text-4xl text-[#C8F135]'>
+            /
+          </span>
+
+          <a href="/signup" className="btn-primary mono" style={{
+            background: '#C8F135', color: '#000', fontWeight: 700, fontSize: '.78rem',
+            padding: '.55rem 1.4rem', borderRadius: 100, textDecoration: 'none',
+            letterSpacing: '.06em', textTransform: 'uppercase',
+          }}>Sign Up</a>
+        </div>
+
       </nav>
 
       {/* ══════════════════════════════════════
