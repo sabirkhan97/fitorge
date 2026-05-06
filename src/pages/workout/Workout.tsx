@@ -548,7 +548,6 @@ function FirstTimeHint() {
 const SELECTION_HINTS: Record<string, string> = {
   muscle_gain:  'Great for building size — we\'ll increase volume & rest periods',
   fat_loss:     'Adds cardio circuits & higher rep ranges to torch calories',
-  strength:     'Prioritizes heavy compound lifts with longer recovery',
   endurance:    'Focuses on sustained effort, minimal rest, progressive overload',
   recomp:       'Balanced macros approach — builds muscle while shedding fat',
   flexibility:  'Adds mobility work and active stretching to your session',
