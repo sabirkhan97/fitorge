@@ -1,6 +1,14 @@
-import { createClient } from '@supabase/supabase-js'
+import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = "https://tdungunwiizbnvonlaxy.supabase.co"
-const supabaseAnonKey = "sb_publishable_1-DYsgj8wV0jrj9DC6entQ_swpYjPg9" 
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+if (!supabaseUrl || !supabaseAnonKey) {
+  // eslint-disable-next-line no-console
+  console.warn(
+    '[FitForge] Missing VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY. Auth + storage will not work.'
+  );
+}
+
+export const supabase = createClient(supabaseUrl ?? '', supabaseAnonKey ?? '');
+
