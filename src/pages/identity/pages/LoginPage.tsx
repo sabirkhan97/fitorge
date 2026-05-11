@@ -233,7 +233,7 @@ export default function LoginPage() {
       }
 
       // ✅ success
-      navigate('/workout');
+      navigate('/');
 
     } catch {
       setError('Something went wrong');

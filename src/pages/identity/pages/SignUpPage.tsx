@@ -294,9 +294,12 @@ export default function SignUpPage() {
     const pwEmpty = touched.password && form.password.trim() === '';
 
     const canSubmit =
-        form.email.trim() !== '' && emailValid &&
-        form.password.trim() !== '' && pwStrength.score >= 2 &&
-        confirmMatch;
+        form.username.trim().length >= 3 &&
+        form.email.trim() !== '' &&
+        emailValid &&
+        form.password.trim() !== '' &&
+        pwStrength.score >= 2 &&
+        confirmMatch;   
 
     //   const handleSubmit = async (e: React.FormEvent) => {
     //     e.preventDefault();
@@ -328,7 +331,13 @@ export default function SignUpPage() {
             // 1️⃣ SIGN UP
             const { data, error } = await supabase.auth.signUp({
                 email: form.email,
-                password: form.password
+                password: form.password,
+                options: {
+                    data: {
+                        username: form.username,
+                    },
+                },
+
             });
 
             if (error) {
