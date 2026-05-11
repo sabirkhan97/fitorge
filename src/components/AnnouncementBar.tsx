@@ -3,32 +3,24 @@ import { useNavigate } from 'react-router-dom';
 
 export interface Announcement {
   id: number;
-  title: string;      // the message text
+  title: string;
 }
 
 interface AnnouncementBarProps {
-  /** Array of announcements to cycle through */
   announcements: Announcement[];
-  /** Interval in milliseconds between message changes (default: 5000) */
   intervalMs?: number;
-  /** Button text (default: "Generate Workout →") */
   buttonText?: string;
-  /** Button link (default: "/workout") */
   buttonLink?: string;
-  /** Background color (default: "#C8F135") */
   bgColor?: string;
-  /** Text color (default: "#000") */
   textColor?: string;
-  /** Whether the bar can be dismissed by user (default: true) */
   dismissible?: boolean;
-  /** Storage key for dismissal (default: "announcementClosed") */
   storageKey?: string;
 }
 
 export default function AnnouncementBar({
   announcements,
   intervalMs = 5000,
-  buttonText = "Generate Workout →",
+  buttonText = "Generate",
   buttonLink = "/workout",
   bgColor = "#C8F135",
   textColor = "#000",
@@ -39,7 +31,6 @@ export default function AnnouncementBar({
   const [currentIndex, setCurrentIndex] = useState(0);
   const navigate = useNavigate();
 
-  // Check if user dismissed this bar in this session
   useEffect(() => {
     if (dismissible) {
       const closed = sessionStorage.getItem(storageKey);
@@ -47,7 +38,6 @@ export default function AnnouncementBar({
     }
   }, [dismissible, storageKey]);
 
-  // Cycle through announcements
   useEffect(() => {
     if (!isVisible || announcements.length <= 1) return;
     const timer = setInterval(() => {
@@ -64,65 +54,41 @@ export default function AnnouncementBar({
 
   if (!isVisible || announcements.length === 0) return null;
 
-  const currentAnnouncement = announcements[currentIndex];
+  const current = announcements[currentIndex];
 
   return (
     <div
+      className="fixed top-0 left-0 right-0 z-[1100] flex items-center justify-between gap-1 px-2 py-1 text-[11px] font-medium"
       style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        zIndex: 1100,
         background: bgColor,
         color: textColor,
-        padding: '10px 20px',
-        textAlign: 'center',
         fontFamily: "'DM Sans', sans-serif",
-        fontSize: '0.9rem',
-        fontWeight: 500,
-        boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: '20px',
-        flexWrap: 'wrap',
       }}
     >
-      <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-        {currentAnnouncement.title}
+      {/* Message - truncated on mobile, full on larger screens */}
+      <span className="flex-1 truncate text-center sm:text-left">
+        {current.title}
       </span>
+
+      {/* Button - very compact */}
       <button
         onClick={() => navigate(buttonLink)}
+        className="shrink-0 px-2 py-0.5 rounded-full font-bold text-[10px] sm:text-xs transition active:scale-95"
         style={{
           background: textColor,
           color: bgColor,
-          border: 'none',
-          borderRadius: '40px',
-          padding: '6px 16px',
-          fontWeight: 'bold',
-          fontSize: '0.8rem',
-          cursor: 'pointer',
-          transition: 'transform 0.2s',
         }}
-        onMouseEnter={(e) => (e.currentTarget.style.transform = 'scale(1.02)')}
-        onMouseLeave={(e) => (e.currentTarget.style.transform = 'scale(1)')}
       >
         {buttonText}
       </button>
+
+      {/* Close button - tiny */}
       {dismissible && (
         <button
           onClick={handleClose}
-          style={{
-            background: 'transparent',
-            border: 'none',
-            fontSize: '1.2rem',
-            cursor: 'pointer',
-            color: textColor,
-            opacity: 0.7,
-            marginLeft: '10px',
-          }}
-          aria-label="Close announcement"
+          className="shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-xs hover:bg-black/10 transition"
+          style={{ color: textColor }}
+          aria-label="Close"
         >
           ✕
         </button>

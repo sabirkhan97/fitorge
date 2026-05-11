@@ -7,6 +7,10 @@ import LoginPage from './pages/identity/pages/LoginPage';
 import SignUpPage from './pages/identity/pages/SignUpPage';
 import AnnouncementBar from './components/AnnouncementBar';
 import WorkoutForm from './pages/workoutForm/WorkoutForm';
+import About from './pages/about/About';
+import Programs from './pages/programs/Programs';
+import Muscles from './pages/Muscles/Muscles';
+import Workouts from './pages/workouts/Workouts';
 
 export default function App() {
   const announcements = [
@@ -34,6 +38,11 @@ export default function App() {
         <Route path="/history" element={<History />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignUpPage />} />
+        <Route path="/about" element={<About />} />
+        <Route path="/programs" element={<Programs />} />
+        <Route path="/muscles" element={<Muscles />} />
+        <Route path="/workouts" element={<Workouts />} />
+
       </Routes>
     </Router>
   );

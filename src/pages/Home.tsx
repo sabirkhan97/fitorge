@@ -1,88 +1,38 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FitOrge } from '../image/Icons';
 import { supabase } from '../lib/supabase';
 import { useAuthContext } from '../context/AuthContext';
+import Navbar from './navbar/Navbar';
+import Footer from './footer/Footer';
 
+// ── Data (same as before) ────────────────────────────────────────────────────
 const MUSCLE_COLORS: Record<string, string> = {
-  Chest: '#FF6B6B',
-  'Upper Chest': '#FF8E53',
-  Shoulders: '#FFBE0B',
-  Triceps: '#3A86FF',
-  Back: '#8338EC',
-  Biceps: '#06D6A0',
-  Legs: '#FB5607',
-  Core: '#FF006E',
-  Glutes: '#8B5CF6',
-  Hamstrings: '#F97316',
-  Calves: '#14B8A6',
-  Forearms: '#84CC16',
+  Chest: '#FF6B6B', 'Upper Chest': '#FF8E53', Shoulders: '#FFBE0B',
+  Triceps: '#3A86FF', Back: '#8338EC', Biceps: '#06D6A0',
+  Legs: '#FB5607', Core: '#FF006E', Glutes: '#8B5CF6',
+  Hamstrings: '#F97316', Calves: '#14B8A6', Forearms: '#84CC16',
 };
 
 const EXERCISE_COUNTS: Record<string, number> = {
-  Chest: 18,
-  'Upper Chest': 9,
-  Shoulders: 22,
-  Triceps: 14,
-  Back: 20,
-  Biceps: 12,
-  Legs: 24,
-  Core: 16,
-  Glutes: 11,
-  Hamstrings: 8,
-  Calves: 7,
-  Forearms: 6,
+  Chest: 18, 'Upper Chest': 9, Shoulders: 22, Triceps: 14,
+  Back: 20, Biceps: 12, Legs: 24, Core: 16,
+  Glutes: 11, Hamstrings: 8, Calves: 7, Forearms: 6,
 };
 
 const FEATURES = [
-  {
-    num: '01',
-    title: 'AI Workout Generation',
-    desc: 'Answer a few questions, get a science-backed program built for your exact body, goals, and schedule. Every time.',
-  },
-  {
-    num: '02',
-    title: 'Muscle Targeting',
-    desc: 'Visualize exactly which muscles each exercise activates. Track volume per group and eliminate imbalances.',
-  },
-  {
-    num: '03',
-    title: 'Progressive Overload',
-    desc: 'Auto-adjusting difficulty curves that keep you in the optimal training zone — not too easy, never reckless.',
-  },
-  {
-    num: '04',
-    title: 'Difficulty Scaling',
-    desc: 'Beginner to Advanced. The system meets you where you are and evolves as your strength grows.',
-  },
-  {
-    num: '05',
-    title: 'Equipment Aware',
-    desc: 'Bodyweight, dumbbells, full gym — Forge optimizes for whatever you have. No excuses, no barriers.',
-  },
-  {
-    num: '06',
-    title: 'Instant Programs',
-    desc: 'Zero waiting. Your full personalized workout appears in seconds — ready to load, save, and crush.',
-  },
+  { num: '01', title: 'AI Workout Generation', desc: 'Answer a few questions, get a science-backed program built for your exact body, goals, and schedule. Every time.' },
+  { num: '02', title: 'Muscle Targeting', desc: 'Visualize exactly which muscles each exercise activates. Track volume per group and eliminate imbalances.' },
+  { num: '03', title: 'Progressive Overload', desc: 'Auto-adjusting difficulty curves that keep you in the optimal training zone — not too easy, never reckless.' },
+  { num: '04', title: 'Difficulty Scaling', desc: 'Beginner to Advanced. The system meets you where you are and evolves as your strength grows.' },
+  { num: '05', title: 'Equipment Aware', desc: 'Bodyweight, dumbbells, full gym — Forge optimizes for whatever you have. No excuses, no barriers.' },
+  { num: '06', title: 'Instant Programs', desc: 'Zero waiting. Your full personalized workout appears in seconds — ready to load, save, and crush.' },
 ];
 
 const STEPS = [
-  {
-    num: '01',
-    title: 'Tell us about yourself',
-    desc: 'Fitness level, available equipment, weekly schedule, and which muscles you want to target.',
-  },
-  {
-    num: '02',
-    title: 'AI builds your program',
-    desc: 'Our engine selects and sequences exercises for optimal muscle activation, recovery, and progression.',
-  },
-  {
-    num: '03',
-    title: 'Train. Adapt. Repeat.',
-    desc: 'Follow the plan, log your performance, and let Forge evolve the program to keep you progressing.',
-  },
+  { num: '01', title: 'Tell us about yourself', desc: 'Fitness level, available equipment, weekly schedule, and which muscles you want to target.' },
+  { num: '02', title: 'AI builds your program', desc: 'Our engine selects and sequences exercises for optimal muscle activation, recovery, and progression.' },
+  { num: '03', title: 'Train. Adapt. Repeat.', desc: 'Follow the plan, log your performance, and let Forge evolve the program to keep you progressing.' },
 ];
 
 const SAMPLE_WORKOUT = [
@@ -103,25 +53,20 @@ const STATS = [
 const MARQUEE_ITEMS = Object.keys(MUSCLE_COLORS);
 
 export default function Home() {
-  const { user, session, loading } = useAuthContext();
-  
   const navigate = useNavigate();
-
-  const featuresRef = useRef<HTMLDivElement | null>(null);
-  const musclesRef = useRef<HTMLDivElement | null>(null);
-  const statsRef = useRef<HTMLDivElement | null>(null);
-  const stepsRef = useRef<HTMLDivElement | null>(null);
+  const { user, session, loading: authLoading } = useAuthContext();
+  const featuresRef = useRef<HTMLDivElement>(null);
+  const musclesRef = useRef<HTMLDivElement>(null);
+  const statsRef = useRef<HTMLDivElement>(null);
+  const stepsRef = useRef<HTMLDivElement>(null);
 
   const isLoggedIn = !!session;
   const userName = user?.user_metadata?.username || user?.user_metadata?.name || null;
-  debugger
-  const authLoading = loading;
 
-
- 
+  // IntersectionObserver animations
   useEffect(() => {
     const observer = new IntersectionObserver(
-      (entries: IntersectionObserverEntry[]) => {
+      (entries) => {
         entries.forEach((entry) => {
           if (entry.isIntersecting) {
             (entry.target as HTMLElement).style.opacity = '1';
@@ -132,17 +77,17 @@ export default function Home() {
       { threshold: 0.12 }
     );
 
-    const targets: Element[] = [
-      ...(featuresRef.current?.querySelectorAll('.feat-card') ?? []),
-      ...(musclesRef.current?.querySelectorAll('.muscle-chip') ?? []),
-      ...(statsRef.current?.querySelectorAll('.stat-card') ?? []),
-      ...(stepsRef.current?.querySelectorAll('.step-item') ?? []),
-    ] as Element[];
+    const targets = [
+      ...(featuresRef.current?.querySelectorAll('.feat-card') || []),
+      ...(musclesRef.current?.querySelectorAll('.muscle-chip') || []),
+      ...(statsRef.current?.querySelectorAll('.stat-card') || []),
+      ...(stepsRef.current?.querySelectorAll('.step-item') || []),
+    ];
 
-    (targets as HTMLElement[]).forEach((el, i) => {
-      el.style.opacity = '0';
-      el.style.transform = 'translateY(24px)';
-      el.style.transition = `opacity 0.5s ease ${i * 0.06}s, transform 0.5s ease ${i * 0.06}s`;
+    targets.forEach((el, i) => {
+      (el as HTMLElement).style.opacity = '0';
+      (el as HTMLElement).style.transform = 'translateY(24px)';
+      (el as HTMLElement).style.transition = `opacity 0.5s ease ${i * 0.06}s, transform 0.5s ease ${i * 0.06}s`;
       observer.observe(el);
     });
 
@@ -155,703 +100,203 @@ export default function Home() {
   };
 
   return (
-    <div style={{ background: '#0E0E0E', color: '#FFFFFF', fontFamily: "'DM Sans', sans-serif", overflowX: 'hidden', minHeight: '100vh' }}>
-      {/* ── GLOBAL STYLES ── */}
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&family=Space+Mono:wght@400;700&display=swap');
-        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-        html { scroll-behavior: smooth; }
+    <div className="min-h-screen bg-black text-white font-sans">
+      {/* Fixed Navbar – adjusted for announcement bar (top: 56px) */}
+      <Navbar />
 
-        .display  { font-family: 'Bebas Neue', sans-serif; }
-        .mono     { font-family: 'Space Mono', monospace; }
-
-        /* fade-up hero animations */
-        @keyframes fadeUp { from { opacity:0; transform:translateY(24px); } to { opacity:1; transform:translateY(0); } }
-        @keyframes fadeIn { from { opacity:0; } to { opacity:1; } }
-        @keyframes marquee { from { transform:translateX(0); } to { transform:translateX(-50%); } }
-
-        .hero-eyebrow  { animation: fadeUp .6s .2s both; }
-        .hero-title    { animation: fadeUp .7s .35s both; }
-        .hero-body     { animation: fadeUp .6s .5s both; }
-        .hero-actions  { animation: fadeUp .6s .65s both; }
-        .hero-stats    { animation: fadeUp .6s .8s both; }
-        .hero-badge    { animation: fadeIn .4s 1.2s both; }
-        .hero-float    { animation: fadeUp .6s 1s both; }
-
-        .marquee-inner { display:inline-flex; animation: marquee 22s linear infinite; }
-
-        /* nav links */
-        .nav-link { color:#999; text-decoration:none; font-size:.8rem; letter-spacing:.06em; text-transform:uppercase; transition:color .2s; }
-        .nav-link:hover { color:#fff; }
-
-        /* buttons */
-        .btn-primary { transition: background .2s, transform .2s; }
-        .btn-primary:hover { background:#d6ff40 !important; transform:translateY(-2px); }
-
-        .btn-ghost { transition: gap .2s; }
-        .btn-ghost:hover { gap:.9rem !important; }
-
-        .cta-btn { transition: background .2s, transform .2s; }
-        .cta-btn:hover { background:#d6ff40 !important; transform:translateY(-3px); }
-        .cta-btn:hover .cta-arrow { transform:translateX(4px) !important; }
-        .cta-arrow { display:inline-block; transition:transform .2s; }
-
-        /* cards */
-        .feat-card { transition: background .3s; cursor:default; }
-        .feat-card:hover { background:#181818 !important; }
-        .feat-card:hover .feat-num { color:#C8F135 !important; }
-        .feat-num { transition: color .3s; }
-
-        .step-item { cursor:default; }
-        .step-item:hover .step-num { color:#C8F135 !important; }
-        .step-num { transition: color .3s; }
-
-        .muscle-chip { transition: transform .2s, background .2s; cursor:default; }
-        .muscle-chip:hover { transform:translateY(-3px); background:#0E0E0E !important; }
-
-        .exercise-row { transition: border-color .2s; }
-        .exercise-row:hover { border-color:#C8F135 !important; }
-
-        .footer-link { color:#666; text-decoration:none; font-size:.82rem; letter-spacing:.05em; transition:color .2s; }
-        .footer-link:hover { color:#fff; }
-
-        /* responsive */
-        @media (max-width:1024px) {
-          .hero-layout    { grid-template-columns:1fr !important; }
-          .hero-right     { height:360px !important; }
-          .features-grid  { grid-template-columns:repeat(2,1fr) !important; }
-          .how-grid       { grid-template-columns:1fr !important; gap:3rem !important; }
-          .muscles-grid   { grid-template-columns:repeat(3,1fr) !important; }
-          .stats-grid     { grid-template-columns:repeat(2,1fr) !important; }
-        }
-        @media (max-width:640px) {
-          .nav-links      { display:none !important; }
-          .features-grid  { grid-template-columns:1fr !important; }
-          .muscles-grid   { grid-template-columns:repeat(2,1fr) !important; }
-          .stats-grid     { grid-template-columns:repeat(2,1fr) !important; }
-          .hero-stats     { flex-wrap:wrap; gap:1.5rem !important; }
-          .footer-inner   { flex-direction:column; align-items:flex-start !important; }
-        }
-      `}</style>
-
-      {/* ══════════════════════════════════════
-          NAVBAR
-      ══════════════════════════════════════ */}
-      <nav
-        style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          zIndex: 100,
-          padding: '0 clamp(1.5rem,5vw,4rem)',
-          height: 64,
-          borderBottom: '1px solid #272727',
-          background: 'rgba(14,14,14,0.88)',
-          backdropFilter: 'blur(16px)',
-        }}
-        className='flex items-center justify-between bg-[rgba(14,14,14,0.88)]'
-      >
-        <div className="display" style={{ fontSize: '1.8rem', letterSpacing: '.05em', color: '#C8F135' }}>
-          <FitOrge height={50} />
-        </div>
-
-        <ul className="nav-links mono" style={{ display: 'flex', gap: '2rem', listStyle: 'none' }}>
-          {['Workouts', 'Programs', 'Muscles', 'About'].map((l) => (
-            <li key={l}>
-              <a href="#" className="nav-link mono">
-                {l}
-              </a>
-            </li>
-          ))}
-        </ul>
-
-        <div className='flex gap-1 items-center'>
-          {authLoading ? (
-            <div className='mono' style={{ color: '#999', fontSize: '.72rem', letterSpacing: '.08em' }}>
-              Loading...
-            </div>
-          ) : isLoggedIn ? (
-            <>
-              <div
-                className='mono'
-                style={{
-                  color: '#C8F135',
-                  fontSize: '.72rem',
-                  letterSpacing: '.08em',
-                  textTransform: 'uppercase',
-                  marginRight: '.7rem',
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                Welcome back, {userName || 'User'}!
-              </div>
-
-              <button
-                type='button'
-                onClick={() => navigate('/history')}
-                className='btn-primary mono'
-                style={{
-                  background: '#1F1F1F',
-                  color: '#fff',
-                  fontWeight: 700,
-                  fontSize: '.78rem',
-                  padding: '.55rem 1.25rem',
-                  borderRadius: 100,
-                  border: '1px solid #272727',
-                  cursor: 'pointer',
-                  letterSpacing: '.06em',
-                  textTransform: 'uppercase',
-                  marginRight: '0.6rem',
-                }}
-              >
-                History
-              </button>
-
-              <a
-                href='/workout'
-                className='btn-primary mono'
-                style={{
-                  background: '#C8F135',
-                  color: '#000',
-                  fontWeight: 900,
-                  fontSize: '.78rem',
-                  padding: '.55rem 1.7rem',
-                  borderRadius: 100,
-                  textDecoration: 'none',
-                  letterSpacing: '.06em',
-                  textTransform: 'uppercase',
-                  marginRight: '0.6rem',
-                  boxShadow: '0 0 0 3px rgba(200,241,53,0.12)',
-                }}
-              >
-                Generate Workout
-              </a>
-
-              <button
-                type='button'
-                onClick={handleLogout}
-                className='btn-primary mono'
-                style={{
-                  background: 'transparent',
-                  color: '#fff',
-                  fontWeight: 700,
-                  fontSize: '.78rem',
-                  padding: '.55rem 1.25rem',
-                  borderRadius: 100,
-                  border: '1px solid #272727',
-                  cursor: 'pointer',
-                  letterSpacing: '.06em',
-                  textTransform: 'uppercase',
-                }}
-              >
-                Logout
-              </button>
-            </>
-          ) : (
-            <>
-              <a
-                href='/login'
-                className='btn-primary mono'
-                style={{
-                  background: '#C8F135',
-                  color: '#000',
-                  fontWeight: 700,
-                  fontSize: '.78rem',
-                  padding: '.55rem 1.4rem',
-                  borderRadius: 100,
-                  textDecoration: 'none',
-                  letterSpacing: '.06em',
-                  textTransform: 'uppercase',
-                }}
-              >
-                Login
-              </a>
-              <span className='text-4xl text-[#C8F135]'>/</span>
-              <a
-                href='/signup'
-                className='btn-primary mono'
-                style={{
-                  background: '#C8F135',
-                  color: '#000',
-                  fontWeight: 700,
-                  fontSize: '.78rem',
-                  padding: '.55rem 1.4rem',
-                  borderRadius: 100,
-                  textDecoration: 'none',
-                  letterSpacing: '.06em',
-                  textTransform: 'uppercase',
-                }}
-              >
-                Sign Up
-              </a>
-            </>
-          )}
-        </div>
-      </nav>
-
-      {/* ══════════════════════════════════════
-          HERO
-      ══════════════════════════════════════ */}
-      <section
-        className="hero-layout"
-        style={{
-          minHeight: '100svh',
-          display: 'grid',
-          gridTemplateColumns: '1fr 1fr',
-          paddingTop: 64,
-        }}
-      >
-        {/* Left */}
-        <div
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'center',
-            padding: 'clamp(3rem,8vw,7rem) clamp(1.5rem,5vw,4rem)',
-          }}
-        >
-          <p
-            className="hero-eyebrow mono"
-            style={{
-              fontSize: '.7rem',
-              color: '#C8F135',
-              letterSpacing: '.18em',
-              textTransform: 'uppercase',
-              marginBottom: '1.5rem',
-            }}
-          >
-            // AI-Powered Training
-          </p>
-
-          <h1
-            className="hero-title display"
-            style={{ fontSize: 'clamp(5rem,10vw,10rem)', lineHeight: 0.9, letterSpacing: '.01em' }}
-          >
-            BUILT<br />TO BE<br />
-            <span style={{ color: '#C8F135' }}>FORGED.</span>
-          </h1>
-
-          <p
-            className="hero-body"
-            style={{
-              marginTop: '2rem',
-              maxWidth: '38ch',
-              fontSize: '1.05rem',
-              color: '#999',
-              lineHeight: 1.7,
-              fontWeight: 300,
-            }}
-          >
-            Generate science-backed workout programs tailored to your body, goals, and available time. No guesswork — just results.
-          </p>
-
-          <div className="hero-actions" style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', marginTop: '2.5rem', flexWrap: 'wrap' }}>
-            <a
-              href="/workout"
-              className="btn-primary"
-              style={{
-                background: '#C8F135',
-                color: '#000',
-                fontWeight: 700,
-                fontSize: '.95rem',
-                padding: '.9rem 2rem',
-                borderRadius: 100,
-                textDecoration: 'none',
-                letterSpacing: '.03em',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '.5rem',
-              }}
-            >
-              Generate Workout <span>→</span>
-            </a>
-
-            <a
-              href="#how"
-              className="btn-ghost"
-              style={{
-                color: '#fff',
-                fontSize: '.9rem',
-                fontWeight: 500,
-                textDecoration: 'none',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '.5rem',
-              }}
-            >
-              See how it works <span>→</span>
-            </a>
-          </div>
-
-          <div className="hero-stats" style={{ display: 'flex', gap: '2.5rem', marginTop: '3.5rem' }}>
-            {[{ num: '120+', label: 'Exercises' }, { num: '12', label: 'Muscle Groups' }, { num: '∞', label: 'Combinations' }].map((s) => (
-              <div key={s.label} style={{ borderLeft: '2px solid #C8F135', paddingLeft: '1rem' }}>
-                <div className="display" style={{ fontSize: '2.2rem', lineHeight: 1 }}>
-                  {s.num}
-                </div>
-                <div className="mono" style={{ fontSize: '.7rem', color: '#666', letterSpacing: '.1em', textTransform: 'uppercase', marginTop: '.2rem' }}>
-                  {s.label}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Right – visual panel */}
-        <div className="hero-right" style={{ position: 'relative', overflow: 'hidden', background: '#181818' }}>
-          {/* Grid lines */}
-          <div
-            style={{
-              position: 'absolute',
-              inset: 0,
-              display: 'grid',
-              gridTemplateColumns: 'repeat(8,1fr)',
-              gridTemplateRows: 'repeat(10,1fr)',
-              opacity: 0.06,
-            }}
-          >
-            {Array.from({ length: 80 }).map((_, i) => (
-              <span key={i} style={{ border: '.5px solid #C8F135' }} />
-            ))}
-          </div>
-
-          {/* Silhouette */}
-          <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
-            <svg width="260" height="400" viewBox="0 0 280 420" fill="none" style={{ opacity: 0.15 }}>
-              <ellipse cx="140" cy="50" rx="28" ry="30" fill="#C8F135" />
-              <rect x="110" y="82" width="60" height="110" rx="12" fill="#C8F135" />
-              <rect x="70" y="88" width="36" height="95" rx="10" fill="#C8F135" />
-              <rect x="174" y="88" width="36" height="95" rx="10" fill="#C8F135" />
-              <rect x="113" y="190" width="26" height="120" rx="8" fill="#C8F135" />
-              <rect x="141" y="190" width="26" height="120" rx="8" fill="#C8F135" />
-              <rect x="112" y="310" width="28" height="80" rx="8" fill="#C8F135" />
-              <rect x="142" y="310" width="28" height="80" rx="8" fill="#C8F135" />
-            </svg>
-          </div>
-
-          {/* Float card */}
-          <div
-            className="hero-float"
-            style={{
-              position: 'absolute',
-              bottom: '2.5rem',
-              left: '2rem',
-              right: '2rem',
-              background: 'rgba(14,14,14,0.92)',
-              border: '1px solid #272727',
-              borderRadius: 16,
-              padding: '1.25rem 1.5rem',
-              backdropFilter: 'blur(12px)',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '1.25rem',
-            }}
-          >
-            <svg width="56" height="56" viewBox="0 0 56 56" style={{ flexShrink: 0 }}>
-              <circle cx="28" cy="28" r="22" fill="none" stroke="#272727" strokeWidth="3" />
-              <circle
-                cx="28"
-                cy="28"
-                r="22"
-                fill="none"
-                stroke="#C8F135"
-                strokeWidth="3"
-                strokeLinecap="round"
-                strokeDasharray="138"
-                strokeDashoffset="35"
-                style={{ transformOrigin: '50% 50%', transform: 'rotate(-90deg)' }}
-              />
-            </svg>
-            <div>
-              <div className="mono" style={{ fontSize: '.7rem', color: '#666', textTransform: 'uppercase', letterSpacing: '.1em' }}>
-                Today's Goal
-              </div>
-              <div className="display" style={{ fontSize: '1.5rem', lineHeight: 1.2 }}>
-                75% Done
-              </div>
-              <div style={{ fontSize: '.78rem', color: '#999', marginTop: '.15rem' }}>3 of 4 exercises complete</div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ══════════════════════════════════════
-          MARQUEE
-      ══════════════════════════════════════ */}
-      <div
-        style={{
-          borderTop: '1px solid #272727',
-          borderBottom: '1px solid #272727',
-          background: '#181818',
-          padding: '.9rem 0',
-          overflow: 'hidden',
-          whiteSpace: 'nowrap',
-        }}
-      >
-        <div className="marquee-inner">
-          {[...MARQUEE_ITEMS, ...MARQUEE_ITEMS].flatMap((item, i) => [
-            <span
-              key={`item-${i}`}
-              className="mono"
-              style={{
-                fontSize: '.7rem',
-                letterSpacing: '.15em',
-                textTransform: 'uppercase',
-                color: i % 3 === 0 ? '#C8F135' : '#666',
-                padding: '0 2rem',
-              }}
-            >
-              {item}
-            </span>,
-            <span key={`dot-${i}`} className="mono" style={{ fontSize: '.7rem', color: '#333', padding: '0 .5rem' }}>
-              ·
-            </span>,
-          ])}
-        </div>
-      </div>
-
-      {/* ══════════════════════════════════════
-          FEATURES
-      ══════════════════════════════════════ */}
-      <section style={{ padding: 'clamp(4rem,8vw,7rem) clamp(1.5rem,5vw,4rem)' }}>
-        <p className="mono" style={{ fontSize: '.7rem', color: '#C8F135', letterSpacing: '.18em', textTransform: 'uppercase', marginBottom: '1rem' }}>
-          // What we do
-        </p>
-        <h2 className="display" style={{ fontSize: 'clamp(2.5rem,5vw,5rem)', lineHeight: 0.95, letterSpacing: '.02em' }}>
-          TRAIN<br />SMARTER.
-        </h2>
-
-        <div
-          ref={featuresRef}
-          className="features-grid"
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(3,1fr)',
-            gap: '1px',
-            background: '#272727',
-            marginTop: '4rem',
-            border: '1px solid #272727',
-          }}
-        >
-          {FEATURES.map((f) => (
-            <div key={f.num} className="feat-card" style={{ background: '#0E0E0E', padding: '2.5rem 2rem' }}>
-              <div className="feat-num display" style={{ fontSize: '5rem', color: '#272727', lineHeight: 1, marginBottom: '1rem' }}>
-                {f.num}
-              </div>
-              <div style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '.7rem' }}>{f.title}</div>
-              <div style={{ fontSize: '.88rem', color: '#999', lineHeight: 1.7 }}>{f.desc}</div>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* ══════════════════════════════════════
-          HOW IT WORKS
-      ══════════════════════════════════════ */}
-      <section id="how" style={{ background: '#181818', padding: 'clamp(4rem,8vw,7rem) clamp(1.5rem,5vw,4rem)' }}>
-        <div className="how-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6rem', alignItems: 'center' }}>
-          {/* Steps */}
-          <div>
-            <p className="mono" style={{ fontSize: '.7rem', color: '#C8F135', letterSpacing: '.18em', textTransform: 'uppercase', marginBottom: '1rem' }}>
-              // How it works
+      {/* Main content – adds padding top to account for fixed header (56px bar + 64px nav = 120px) */}
+      <main className="pt-[120px] md:pt-[120px]">
+        {/* Hero Section */}
+        <section className="grid md:grid-cols-2 min-h-[calc(100vh-120px)] items-center px-6 md:px-12 lg:px-20 py-12">
+          {/* Left */}
+          <div className="space-y-6">
+            <div className="text-xs font-mono text-[#C8F135] tracking-widest uppercase">// AI-Powered Training</div>
+            <h1 className="text-6xl sm:text-7xl md:text-8xl lg:text-9xl font-black leading-[0.9] tracking-tight" style={{ fontFamily: "'Bebas Neue', sans-serif" }}>
+              BUILT<br />TO BE<br />
+              <span className="text-[#C8F135]">FORGED.</span>
+            </h1>
+            <p className="text-gray-400 max-w-md text-base">
+              Generate science-backed workout programs tailored to your body, goals, and available time. No guesswork — just results.
             </p>
-            <h2 className="display" style={{ fontSize: 'clamp(2.5rem,5vw,5rem)', lineHeight: 0.95, letterSpacing: '.02em', marginBottom: '3rem' }}>
-              THREE<br />STEPS.
-            </h2>
-
-            <div ref={stepsRef}>
-              {STEPS.map((s, i) => (
-                <div
-                  key={s.num}
-                  className="step-item"
-                  style={{
-                    display: 'flex',
-                    gap: '2rem',
-                    padding: '2rem 0',
-                    borderBottom: i < STEPS.length - 1 ? '1px solid #272727' : 'none',
-                  }}
-                >
-                  <div className="step-num display" style={{ fontSize: '3.5rem', color: '#272727', lineHeight: 1, flexShrink: 0, width: '3.5rem' }}>
-                    {s.num}
-                  </div>
-                  <div style={{ paddingTop: '.4rem' }}>
-                    <div style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '.4rem' }}>{s.title}</div>
-                    <div style={{ fontSize: '.85rem', color: '#999', lineHeight: 1.7 }}>{s.desc}</div>
-                  </div>
+            <div className="flex flex-wrap gap-4">
+              <a href="/workout" className="bg-[#C8F135] text-black font-bold px-6 py-3 rounded-full text-sm hover:bg-[#d4ff3e] transition inline-flex items-center gap-2">
+                Generate Workout <span>→</span>
+              </a>
+              <a href="#how" className="border border-gray-700 px-6 py-3 rounded-full text-sm hover:bg-gray-900 transition inline-flex items-center gap-2">
+                See how it works <span>→</span>
+              </a>
+            </div>
+            <div className="flex gap-8 pt-4">
+              {[{ num: '120+', label: 'Exercises' }, { num: '12', label: 'Muscle Groups' }, { num: '∞', label: 'Combinations' }].map((s) => (
+                <div key={s.label} className="border-l-2 border-[#C8F135] pl-4">
+                  <div className="text-3xl font-black">{s.num}</div>
+                  <div className="text-[10px] font-mono text-gray-500 uppercase tracking-wider">{s.label}</div>
                 </div>
               ))}
             </div>
           </div>
 
-          {/* Workout preview card */}
-          <div style={{ background: '#0E0E0E', borderRadius: 24, border: '1px solid #272727', overflow: 'hidden', aspectRatio: '9/10', display: 'flex', alignItems: 'center' }}>
-            <div style={{ padding: '2rem', width: '100%' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-                <div className="display" style={{ fontSize: '1.6rem', letterSpacing: '.03em' }}>
-                  PUSH DAY A
-                </div>
-                <div className="mono" style={{ background: '#C8F135', color: '#000', fontSize: '.65rem', fontWeight: 700, padding: '.3rem .7rem', borderRadius: 100, letterSpacing: '.1em' }}>
-                  INTERMEDIATE
-                </div>
+          {/* Right – visual placeholder */}
+          <div className="hidden md:block relative bg-gradient-to-br from-gray-900 to-black rounded-2xl overflow-hidden aspect-square max-w-md mx-auto w-full border border-gray-800">
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(200,241,53,0.08),transparent)]" />
+            <div className="flex items-center justify-center h-full">
+              <svg width="200" height="300" viewBox="0 0 280 420" fill="none" className="opacity-20">
+                <ellipse cx="140" cy="50" rx="28" ry="30" fill="#C8F135" />
+                <rect x="110" y="82" width="60" height="110" rx="12" fill="#C8F135" />
+                <rect x="70" y="88" width="36" height="95" rx="10" fill="#C8F135" />
+                <rect x="174" y="88" width="36" height="95" rx="10" fill="#C8F135" />
+                <rect x="113" y="190" width="26" height="120" rx="8" fill="#C8F135" />
+                <rect x="141" y="190" width="26" height="120" rx="8" fill="#C8F135" />
+                <rect x="112" y="310" width="28" height="80" rx="8" fill="#C8F135" />
+                <rect x="142" y="310" width="28" height="80" rx="8" fill="#C8F135" />
+              </svg>
+            </div>
+            <div className="absolute bottom-4 left-4 right-4 bg-black/80 backdrop-blur p-3 rounded-xl border border-gray-800">
+              <div className="text-[10px] font-mono text-gray-500 uppercase">Today's Goal</div>
+              <div className="text-lg font-black">75% Done</div>
+              <div className="text-xs text-gray-500">3 of 4 exercises complete</div>
+            </div>
+          </div>
+        </section>
+
+        {/* Marquee */}
+        <div className="border-y border-gray-800 bg-gray-950 py-3 overflow-hidden">
+          <div className="flex animate-marquee whitespace-nowrap">
+            {[...MARQUEE_ITEMS, ...MARQUEE_ITEMS].map((item, i) => (
+              <span key={i} className="mx-4 text-xs font-mono text-gray-500 uppercase tracking-wider">
+                {item} •
+              </span>
+            ))}
+          </div>
+        </div>
+
+        {/* Features */}
+        <section className="px-6 md:px-12 lg:px-20 py-20">
+          <div className="text-xs font-mono text-[#C8F135] uppercase tracking-wider mb-2">// What we do</div>
+          <h2 className="text-5xl md:text-6xl font-black leading-[0.95]" style={{ fontFamily: "'Bebas Neue', sans-serif" }}>
+            TRAIN<br />SMARTER.
+          </h2>
+          <div ref={featuresRef} className="grid md:grid-cols-2 lg:grid-cols-3 gap-px bg-gray-800 mt-12 border border-gray-800">
+            {FEATURES.map((f) => (
+              <div key={f.num} className="bg-black p-6 md:p-8 feat-card">
+                <div className="text-5xl font-black text-gray-800 mb-4">{f.num}</div>
+                <div className="font-bold text-lg mb-2">{f.title}</div>
+                <div className="text-gray-400 text-sm">{f.desc}</div>
               </div>
-              {SAMPLE_WORKOUT.map((ex) => (
-                <div
-                  key={ex.name}
-                  className="exercise-row"
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '1rem',
-                    padding: '.9rem 1rem',
-                    background: '#1F1F1F',
-                    borderRadius: 12,
-                    marginBottom: '.7rem',
-                    border: '1px solid transparent',
-                  }}
-                >
-                  <div style={{ width: 8, height: 8, borderRadius: '50%', background: ex.color, flexShrink: 0 }} />
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: '.88rem', fontWeight: 500 }}>{ex.name}</div>
-                    <div className="mono" style={{ fontSize: '.72rem', color: '#666', marginTop: '.1rem' }}>
-                      {ex.muscles}
+            ))}
+          </div>
+        </section>
+
+        {/* How it works */}
+        <section id="how" className="bg-gray-950 px-6 md:px-12 lg:px-20 py-20">
+          <div className="grid lg:grid-cols-2 gap-12 items-center">
+            <div>
+              <div className="text-xs font-mono text-[#C8F135] uppercase tracking-wider mb-2">// How it works</div>
+              <h2 className="text-5xl md:text-6xl font-black leading-[0.95] mb-8" style={{ fontFamily: "'Bebas Neue', sans-serif" }}>
+                THREE<br />STEPS.
+              </h2>
+              <div ref={stepsRef}>
+                {STEPS.map((s, i) => (
+                  <div key={s.num} className={`flex gap-6 py-6 ${i < STEPS.length - 1 ? 'border-b border-gray-800' : ''} step-item`}>
+                    <div className="text-5xl font-black text-gray-800 leading-none">{s.num}</div>
+                    <div>
+                      <div className="font-bold text-lg">{s.title}</div>
+                      <div className="text-gray-400 text-sm mt-1">{s.desc}</div>
                     </div>
                   </div>
-                  <div className="mono" style={{ fontSize: '.78rem', color: '#999' }}>
-                    {ex.sets}
+                ))}
+              </div>
+            </div>
+            <div className="bg-black rounded-2xl border border-gray-800 p-6 aspect-[9/10] flex flex-col">
+              <div className="flex justify-between items-center mb-4">
+                <div className="text-2xl font-black">PUSH DAY A</div>
+                <div className="text-[10px] font-mono bg-[#C8F135] text-black px-2 py-1 rounded-full">INTERMEDIATE</div>
+              </div>
+              {SAMPLE_WORKOUT.map((ex) => (
+                <div key={ex.name} className="flex items-center gap-3 p-3 bg-gray-900 rounded-xl mb-2 border border-transparent hover:border-[#C8F135] transition">
+                  <div className="w-2 h-2 rounded-full" style={{ background: ex.color }} />
+                  <div className="flex-1">
+                    <div className="text-sm font-medium">{ex.name}</div>
+                    <div className="text-[10px] font-mono text-gray-500">{ex.muscles}</div>
                   </div>
+                  <div className="text-xs font-mono text-gray-500">{ex.sets}</div>
                 </div>
               ))}
             </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* ══════════════════════════════════════
-          MUSCLE GROUPS
-      ══════════════════════════════════════ */}
-      <section style={{ background: '#0E0E0E', padding: 'clamp(4rem,8vw,7rem) clamp(1.5rem,5vw,4rem)' }}>
-        <p className="mono" style={{ fontSize: '.7rem', color: '#C8F135', letterSpacing: '.18em', textTransform: 'uppercase', marginBottom: '1rem' }}>
-          // Muscle targeting
-        </p>
-        <h2 className="display" style={{ fontSize: 'clamp(2.5rem,5vw,5rem)', lineHeight: 0.95, letterSpacing: '.02em' }}>
-          EVERY<br />MUSCLE.
-        </h2>
-
-        <div ref={musclesRef} className="muscles-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: '1rem', marginTop: '3rem' }}>
-          {Object.entries(MUSCLE_COLORS).map(([name, color]) => (
-            <div key={name} className="muscle-chip" style={{ background: '#181818', border: '1px solid #272727', borderRadius: 12, padding: '1.25rem' }}>
-              <div style={{ width: 10, height: 10, borderRadius: '50%', background: color, marginBottom: '.75rem' }} />
-              <div style={{ fontSize: '.88rem', fontWeight: 600 }}>{name}</div>
-              <div className="mono" style={{ fontSize: '.7rem', color: '#666', marginTop: '.2rem' }}>
-                {(EXERCISE_COUNTS as any)[name]} exercises
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* ══════════════════════════════════════
-          STATS
-      ══════════════════════════════════════ */}
-      <section style={{ background: '#1F1F1F', padding: 'clamp(4rem,8vw,7rem) clamp(1.5rem,5vw,4rem)' }}>
-        <p className="mono" style={{ fontSize: '.7rem', color: '#C8F135', letterSpacing: '.18em', textTransform: 'uppercase', marginBottom: '1rem' }}>
-          // By the numbers
-        </p>
-        <h2 className="display" style={{ fontSize: 'clamp(2.5rem,5vw,5rem)', lineHeight: 0.95, letterSpacing: '.02em' }}>
-          THE<br />PROOF.
-        </h2>
-
-        <div ref={statsRef} className="stats-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: '1px', background: '#272727', border: '1px solid #272727', marginTop: '3rem' }}>
-          {STATS.map((s) => (
-            <div key={s.label} className="stat-card" style={{ background: '#1F1F1F', padding: '3rem 2rem', textAlign: 'center' }}>
-              <div className="display" style={{ fontSize: 'clamp(3rem,5vw,5.5rem)', color: '#C8F135', lineHeight: 1 }}>
-                {s.num}
-              </div>
-              <div className="mono" style={{ fontSize: '.75rem', color: '#999', textTransform: 'uppercase', letterSpacing: '.12em', marginTop: '.5rem' }}>
-                {s.label}
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* ══════════════════════════════════════
-          CTA
-      ══════════════════════════════════════ */}
-      <section style={{ textAlign: 'center', padding: 'clamp(5rem,10vw,9rem) clamp(1.5rem,5vw,4rem)', position: 'relative', overflow: 'hidden' }}>
-        <div
-          className="display"
-          style={{
-            position: 'absolute',
-            inset: 0,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: 'clamp(8rem,20vw,22rem)',
-            color: 'rgba(255,255,255,0.025)',
-            pointerEvents: 'none',
-            letterSpacing: '.05em',
-            lineHeight: 1,
-            zIndex: 0,
-          }}
-        >
-          FORGE
-        </div>
-
-        <div style={{ position: 'relative', zIndex: 1 }}>
-          <h2 className="display" style={{ fontSize: 'clamp(3.5rem,8vw,9rem)', lineHeight: 0.9, letterSpacing: '.02em', marginBottom: '1.5rem' }}>
-            READY TO<br />
-            <span style={{ color: '#C8F135' }}>FORGE?</span>
+        {/* Muscle Groups */}
+        <section className="px-6 md:px-12 lg:px-20 py-20">
+          <div className="text-xs font-mono text-[#C8F135] uppercase tracking-wider mb-2">// Muscle targeting</div>
+          <h2 className="text-5xl md:text-6xl font-black leading-[0.95]" style={{ fontFamily: "'Bebas Neue', sans-serif" }}>
+            EVERY<br />MUSCLE.
           </h2>
-          <p style={{ fontSize: '1.05rem', color: '#999', maxWidth: '45ch', margin: '0 auto 3rem', fontWeight: 300 }}>
-            Stop guessing, start building. Generate your personalized workout in seconds — completely free.
-          </p>
-          <a
-            href="/workout"
-            className="cta-btn"
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '.75rem',
-              background: '#C8F135',
-              color: '#000',
-              fontWeight: 700,
-              fontSize: '1rem',
-              padding: '1.1rem 2.5rem',
-              borderRadius: 100,
-              textDecoration: 'none',
-              letterSpacing: '.03em',
-            }}
-          >
-            Generate Your Workout <span className="cta-arrow">→</span>
-          </a>
-        </div>
-      </section>
+          <div ref={musclesRef} className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 mt-12">
+            {Object.entries(MUSCLE_COLORS).map(([name, color]) => (
+              <div key={name} className="bg-gray-900 border border-gray-800 rounded-xl p-4 muscle-chip">
+                <div className="w-2 h-2 rounded-full mb-2" style={{ background: color }} />
+                <div className="font-semibold text-sm">{name}</div>
+                <div className="text-[10px] font-mono text-gray-500 mt-1">{EXERCISE_COUNTS[name] || 0} exercises</div>
+              </div>
+            ))}
+          </div>
+        </section>
 
-      {/* ══════════════════════════════════════
-          FOOTER
-      ══════════════════════════════════════ */}
-      <footer style={{ borderTop: '1px solid #272727', padding: '3rem clamp(1.5rem,5vw,4rem)' }}>
-        <div className="footer-inner" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1.5rem' }}>
-          <div className="display" style={{ fontSize: '1.6rem', letterSpacing: '.05em', color: '#C8F135' }}>
+        {/* Stats */}
+        <section className="bg-gray-950 px-6 md:px-12 lg:px-20 py-20">
+          <div className="text-xs font-mono text-[#C8F135] uppercase tracking-wider mb-2">// By the numbers</div>
+          <h2 className="text-5xl md:text-6xl font-black leading-[0.95]" style={{ fontFamily: "'Bebas Neue', sans-serif" }}>
+            THE<br />PROOF.
+          </h2>
+          <div ref={statsRef} className="grid grid-cols-2 md:grid-cols-4 gap-px bg-gray-800 mt-12 border border-gray-800">
+            {STATS.map((s) => (
+              <div key={s.label} className="bg-gray-950 p-6 text-center stat-card">
+                <div className="text-4xl md:text-5xl font-black text-[#C8F135]">{s.num}</div>
+                <div className="text-[10px] font-mono text-gray-500 uppercase tracking-wider mt-2">{s.label}</div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* CTA */}
+        <section className="text-center px-6 py-24 relative overflow-hidden">
+          <div className="absolute inset-0 flex items-center justify-center text-8xl md:text-9xl font-black text-white/5 pointer-events-none select-none" style={{ fontFamily: "'Bebas Neue', sans-serif" }}>
             FORGE
           </div>
-          <ul style={{ display: 'flex', gap: '2rem', listStyle: 'none' }}>
-            {['Workouts', 'Programs', 'Muscles', 'Privacy', 'Terms'].map((l) => (
-              <li key={l}>
-                <a href="#" className="footer-link">
-                  {l}
-                </a>
-              </li>
-            ))}
-          </ul>
-          <div className="mono" style={{ fontSize: '.7rem', color: '#666', letterSpacing: '.08em' }}>
-            © 2025 FORGE — Built to be forged.
+          <div className="relative z-10">
+            <h2 className="text-5xl md:text-7xl font-black leading-[0.9]" style={{ fontFamily: "'Bebas Neue', sans-serif" }}>
+              READY TO<br />
+              <span className="text-[#C8F135]">FORGE?</span>
+            </h2>
+            <p className="text-gray-400 max-w-md mx-auto mt-4 mb-8">
+              Stop guessing, start building. Generate your personalized workout in seconds — completely free.
+            </p>
+            <a href="/workout" className="inline-flex items-center gap-2 bg-[#C8F135] text-black font-bold px-8 py-3 rounded-full hover:bg-[#d4ff3e] transition">
+              Generate Your Workout <span>→</span>
+            </a>
           </div>
-        </div>
-      </footer>
+        </section>
+
+        {/* Footer */}
+        <Footer />
+      </main>
+
+      {/* Add keyframes for marquee animation */}
+      <style>{`
+        @keyframes marquee {
+          0% { transform: translateX(0); }
+          100% { transform: translateX(-50%); }
+        }
+        .animate-marquee {
+          animation: marquee 22s linear infinite;
+          display: inline-flex;
+          width: fit-content;
+        }
+        .feat-card, .muscle-chip, .stat-card, .step-item {
+          transition: all 0.3s ease;
+        }
+      `}</style>
     </div>
   );
 }
-
