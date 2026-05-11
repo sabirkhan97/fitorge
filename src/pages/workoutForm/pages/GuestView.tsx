@@ -1,143 +1,126 @@
 'use client';
 import { useState, useCallback, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import api, { type GenerateWorkoutBody } from '../../services/api';
+import api, { type GenerateWorkoutBody } from '../../../services/api';
+import LoadingModal from '../../../components/LoadingModal';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 const GENDERS = [
-  { value: 'Male',   label: 'Male',   icon: '♂' },
+  { value: 'Male', label: 'Male', icon: '♂' },
   { value: 'Female', label: 'Female', icon: '♀' },
-  { value: 'Other',  label: 'Other',  icon: '⊕' },
+  { value: 'Other', label: 'Other', icon: '⊕' },
 ];
-const DURATIONS     = ['20','30','45','60','75','90'];
-const DAYS_PER_WEEK = ['2','3','4','5','6','7'];
-const EQUIPMENT_OPTS = ['Dumbbells','Barbell','Resistance Bands','Pull-up Bar','Kettlebell','Jump Rope','Bench','Bodyweight Only'];
-const INJURY_PRESETS = ['None','Lower Back','Knee','Shoulder','Wrist','Hip','Ankle'];
+const DURATIONS = ['20', '30', '45', '60', '75', '90'];
+const DAYS_PER_WEEK = ['2', '3', '4', '5', '6', '7'];
+const EQUIPMENT_OPTS = ['Dumbbells', 'Barbell', 'Resistance Bands', 'Pull-up Bar', 'Kettlebell', 'Jump Rope', 'Bench', 'Bodyweight Only'];
+const INJURY_PRESETS = ['None', 'Lower Back', 'Knee', 'Shoulder', 'Wrist', 'Hip', 'Ankle'];
 const GOALS = [
   { value: 'muscle_gain', label: 'Muscle Gain', icon: '◈' },
-  { value: 'fat_loss',    label: 'Fat Loss',    icon: '◎' },
-  { value: 'strength',    label: 'Strength',    icon: '◆' },
-  { value: 'endurance',   label: 'Endurance',   icon: '◉' },
-  { value: 'recomp',      label: 'Recomp',      icon: '◐' },
+  { value: 'fat_loss', label: 'Fat Loss', icon: '◎' },
+  { value: 'strength', label: 'Strength', icon: '◆' },
+  { value: 'endurance', label: 'Endurance', icon: '◉' },
+  { value: 'recomp', label: 'Recomp', icon: '◐' },
   { value: 'flexibility', label: 'Flexibility', icon: '◑' },
 ];
 const EXPERIENCE = [
-  { value: 'beginner',     label: 'Beginner',     sub: '< 6 months'  },
+  { value: 'beginner', label: 'Beginner', sub: '< 6 months' },
   { value: 'intermediate', label: 'Intermediate', sub: '6 mo – 2 yr' },
-  { value: 'advanced',     label: 'Advanced',     sub: '2+ years'    },
+  { value: 'advanced', label: 'Advanced', sub: '2+ years' },
 ];
 const FOCUS_OPTS = [
-  { value: 'full_body',  label: 'Full Body'  }, { value: 'upper_body', label: 'Upper Body' },
-  { value: 'lower_body', label: 'Lower Body' }, { value: 'push',       label: 'Push'       },
-  { value: 'pull',       label: 'Pull'       }, { value: 'legs',       label: 'Legs'       },
-  { value: 'chest',      label: 'Chest'      }, { value: 'back',       label: 'Back'       },
-  { value: 'shoulders',  label: 'Shoulders'  }, { value: 'arms',       label: 'Arms'       },
-  { value: 'core',       label: 'Core'       }, { value: 'glutes',     label: 'Glutes'     },
+  { value: 'full_body', label: 'Full Body' }, { value: 'upper_body', label: 'Upper Body' },
+  { value: 'lower_body', label: 'Lower Body' }, { value: 'push', label: 'Push' },
+  { value: 'pull', label: 'Pull' }, { value: 'legs', label: 'Legs' },
+  { value: 'chest', label: 'Chest' }, { value: 'back', label: 'Back' },
+  { value: 'shoulders', label: 'Shoulders' }, { value: 'arms', label: 'Arms' },
+  { value: 'core', label: 'Core' }, { value: 'glutes', label: 'Glutes' },
 ];
 const CARDIO_OPTS = [
-  { value: 'none',   label: 'None',    sub: 'Skip it'   },
-  { value: 'light',  label: 'Light',   sub: 'Easy pace' },
-  { value: 'medium', label: 'Medium',  sub: 'Moderate'  },
-  { value: 'heavy',  label: 'Intense', sub: 'All out'   },
+  { value: 'none', label: 'None', sub: 'Skip it' },
+  { value: 'light', label: 'Light', sub: 'Easy pace' },
+  { value: 'medium', label: 'Medium', sub: 'Moderate' },
+  { value: 'heavy', label: 'Intense', sub: 'All out' },
 ];
 const LOCATIONS = [
-  { value: 'gym',  label: 'Gym',      sub: 'Full equipment' },
-  { value: 'home', label: 'Home',     sub: 'Limited gear'   },
-  { value: 'park', label: 'Outdoors', sub: 'Bodyweight'     },
+  { value: 'gym', label: 'Gym', sub: 'Full equipment' },
+  { value: 'home', label: 'Home', sub: 'Limited gear' },
+  { value: 'park', label: 'Outdoors', sub: 'Bodyweight' },
 ];
 const WEAK_MUSCLES = [
-  { value: 'lower_chest',       label: 'Lower Chest'     }, { value: 'upper_chest',    label: 'Upper Chest'     },
-  { value: 'inner_chest',       label: 'Inner Chest'     }, { value: 'rear_delts',     label: 'Rear Delts'      },
-  { value: 'side_delts',        label: 'Side Delts'      }, { value: 'rounded_shoulders', label: 'Round Shoulders' },
-  { value: 'upper_back',        label: 'Upper Back'      }, { value: 'lats',           label: 'Lats Width'      },
-  { value: 'hamstrings',        label: 'Hamstrings'      }, { value: 'glutes',         label: 'Glutes'          },
-  { value: 'calves',            label: 'Calves'          }, { value: 'bicep_peak',     label: 'Bicep Peak'      },
-  { value: 'tricep_mass',       label: 'Tricep Mass'     }, { value: 'lower_abs',      label: 'Lower Abs'       },
-  { value: 'forearms',          label: 'Forearms'        },
+  { value: 'lower_chest', label: 'Lower Chest' }, { value: 'upper_chest', label: 'Upper Chest' },
+  { value: 'inner_chest', label: 'Inner Chest' }, { value: 'rear_delts', label: 'Rear Delts' },
+  { value: 'side_delts', label: 'Side Delts' }, { value: 'rounded_shoulders', label: 'Round Shoulders' },
+  { value: 'upper_back', label: 'Upper Back' }, { value: 'lats', label: 'Lats Width' },
+  { value: 'hamstrings', label: 'Hamstrings' }, { value: 'glutes', label: 'Glutes' },
+  { value: 'calves', label: 'Calves' }, { value: 'bicep_peak', label: 'Bicep Peak' },
+  { value: 'tricep_mass', label: 'Tricep Mass' }, { value: 'lower_abs', label: 'Lower Abs' },
+  { value: 'forearms', label: 'Forearms' },
 ];
 const INTENSITY_OPTS = [
-  { value: 'pump',      label: 'Pump',      sub: 'High reps, short rest' },
-  { value: 'strength',  label: 'Strength',  sub: 'Heavy, low reps'       },
-  { value: 'circuit',   label: 'Circuit',   sub: 'Minimal rest'          },
-  { value: 'balanced',  label: 'Balanced',  sub: 'Mix of both'           },
-  { value: 'explosive', label: 'Explosive', sub: 'Power & speed'         },
+  { value: 'pump', label: 'Pump', sub: 'High reps, short rest' },
+  { value: 'strength', label: 'Strength', sub: 'Heavy, low reps' },
+  { value: 'circuit', label: 'Circuit', sub: 'Minimal rest' },
+  { value: 'balanced', label: 'Balanced', sub: 'Mix of both' },
+  { value: 'explosive', label: 'Explosive', sub: 'Power & speed' },
 ];
 const RECOVERY_OPTS = [
-  { value: 'fresh',      label: 'Fresh',      sub: 'Ready to crush it' },
-  { value: 'normal',     label: 'Normal',     sub: 'Feeling good'      },
-  { value: 'tired',      label: 'Tired',      sub: 'Low energy'        },
-  { value: 'very_tired', label: 'Very Tired', sub: 'Light session'     },
+  { value: 'fresh', label: 'Fresh', sub: 'Ready to crush it' },
+  { value: 'normal', label: 'Normal', sub: 'Feeling good' },
+  { value: 'tired', label: 'Tired', sub: 'Low energy' },
+  { value: 'very_tired', label: 'Very Tired', sub: 'Light session' },
 ];
 
-// ── FIX: Smart auto-suggestions based on goal ─────────────────────────────────
 const GOAL_SMART_DEFAULTS: Record<string, Partial<FormData>> = {
-  fat_loss:    { cardio: 'medium', intensity_style: 'circuit',  duration: '45' },
-  muscle_gain: { cardio: 'light',  intensity_style: 'pump',     duration: '60' },
-  strength:    { cardio: 'none',   intensity_style: 'strength', duration: '60' },
-  endurance:   { cardio: 'heavy',  intensity_style: 'circuit',  duration: '45' },
-  recomp:      { cardio: 'medium', intensity_style: 'balanced', duration: '45' },
-  flexibility: { cardio: 'light',  intensity_style: 'balanced', duration: '30' },
+  fat_loss: { cardio: 'medium', intensity_style: 'circuit', duration: '45' },
+  muscle_gain: { cardio: 'light', intensity_style: 'pump', duration: '60' },
+  strength: { cardio: 'none', intensity_style: 'strength', duration: '60' },
+  endurance: { cardio: 'heavy', intensity_style: 'circuit', duration: '45' },
+  recomp: { cardio: 'medium', intensity_style: 'balanced', duration: '45' },
+  flexibility: { cardio: 'light', intensity_style: 'balanced', duration: '30' },
 };
 
-// ── FIX: Workout preview data ─────────────────────────────────────────────────
-function getWorkoutPreview(form: FormData) {
-  const splitType = (() => {
-    if (!form.focus) return '—';
-    if (form.focus === 'full_body') return 'Full Body';
-    if (['push','pull','legs'].includes(form.focus)) return 'PPL Split';
-    if (['upper_body','lower_body'].includes(form.focus)) return 'Upper/Lower Split';
-    return 'Muscle Group Split';
-  })();
-  const difficulty = (() => {
-    if (!form.experience) return '—';
-    return { beginner: 'Beginner Friendly', intermediate: 'Moderate', advanced: 'High Intensity' }[form.experience] ?? '—';
-  })();
-  const duration = form.duration ? `${form.duration} min` : '—';
-  return { splitType, difficulty, duration };
-}
+const SELECTION_HINTS: Record<string, string> = {
+  muscle_gain: "Great for building size — we'll increase volume & rest periods",
+  fat_loss: 'Adds cardio circuits & higher rep ranges to torch calories',
+  strength: 'Prioritizes heavy compound lifts with longer recovery',
+  endurance: 'Focuses on sustained effort, minimal rest, progressive overload',
+  recomp: 'Balanced approach — builds muscle while shedding fat',
+  flexibility: 'Adds mobility work and active stretching to your session',
+  pump: 'Increases workout intensity with higher reps',
+  circuit: 'Minimal rest, keeps heart rate elevated',
+  balanced: 'Mix of hypertrophy and strength work',
+  explosive: 'Power-based movements for athletic performance',
+};
 
-// ── Steps ─────────────────────────────────────────────────────────────────────
 const STEPS = [
-  { id: 'body',    title: 'Your Body',   sub: 'Stats & schedule',   index: '01', time: '~30 sec' },
-  { id: 'goals',   title: 'Your Goals',  sub: 'What drives you',    index: '02', time: '~20 sec' },
-  { id: 'session', title: 'Fine-Tune',   sub: 'Location & session', index: '03', time: '~20 sec' },
+  { id: 'body', title: 'Your Body', sub: 'Stats & schedule', index: '01', time: '~30 sec' },
+  { id: 'goals', title: 'Your Goals', sub: 'What drives you', index: '02', time: '~20 sec' },
+  { id: 'session', title: 'Fine-Tune', sub: 'Location & session', index: '03', time: '~20 sec' },
 ];
 
-// ── Validation rules ──────────────────────────────────────────────────────────
 const VALIDATION = {
-  age:    { min: 10,  max: 80,  label: 'Age must be between 10 and 80'         },
+  age: { min: 10, max: 80, label: 'Age must be between 10 and 80' },
   height: { min: 100, max: 250, label: 'Height must be between 100 and 250 cm' },
-  weight: { min: 30,  max: 200, label: 'Weight must be between 30 and 200 kg'  },
+  weight: { min: 30, max: 200, label: 'Weight must be between 30 and 200 kg' },
 };
 
-// ── FIX: Parse flexible input (5'10, 170cm, 70kg, 150lbs) ────────────────────
-function parseHeight(raw: string): { value: string; unit: 'cm' | 'ft' } {
-  const s = raw.trim().toLowerCase();
-  // feet/inches: 5'10 or 5'10" or 5ft10 or 5ft
-  const feetInch = s.match(/^(\d+)['\s]?(?:ft)?['\s]?(\d*)(?:in|")?$/);
-  if (feetInch) {
-    const ft = parseInt(feetInch[1], 10);
-    const inch = feetInch[2] ? parseInt(feetInch[2], 10) : 0;
-    return { value: String(Math.round(ft * 30.48 + inch * 2.54)), unit: 'cm' };
-  }
-  // cm explicit
-  const cm = s.match(/^(\d+\.?\d*)\s*cm$/);
-  if (cm) return { value: String(Math.round(parseFloat(cm[1]))), unit: 'cm' };
-  // plain number
-  const plain = s.match(/^(\d+)$/);
-  if (plain) return { value: plain[1], unit: 'cm' };
-  return { value: s.replace(/[^\d]/g, ''), unit: 'cm' };
+// ── Unit conversion helpers ───────────────────────────────────────────────────
+function ftInToCm(ft: string, inch: string): number {
+  const f = parseFloat(ft) || 0;
+  const i = parseFloat(inch) || 0;
+  return Math.round(f * 30.48 + i * 2.54);
 }
-
-function parseWeight(raw: string): { value: string; unit: 'kg' | 'lbs' } {
-  const s = raw.trim().toLowerCase();
-  const lbs = s.match(/^(\d+\.?\d*)\s*(lbs?|pounds?)$/);
-  if (lbs) return { value: String(Math.round(parseFloat(lbs[1]) * 0.453592)), unit: 'kg' };
-  const kg = s.match(/^(\d+\.?\d*)\s*kg?$/);
-  if (kg) return { value: String(Math.round(parseFloat(kg[1]))), unit: 'kg' };
-  const plain = s.match(/^(\d+)$/);
-  if (plain) return { value: plain[1], unit: 'kg' };
-  return { value: s.replace(/[^\d]/g, ''), unit: 'kg' };
+function cmToFtIn(cm: number): { ft: string; inch: string } {
+  const totalInch = cm / 2.54;
+  const ft = Math.floor(totalInch / 12);
+  const inch = Math.round(totalInch % 12);
+  return { ft: String(ft), inch: String(inch) };
+}
+function lbsToKg(lbs: string): number {
+  return Math.round(parseFloat(lbs) * 0.453592);
+}
+function kgToLbs(kg: number): number {
+  return Math.round(kg / 0.453592);
 }
 
 const LS_KEY = 'fitforge_form_v2';
@@ -149,8 +132,14 @@ interface FormData {
   equipment: string[]; weak_muscles: string[];
   intensity_style: string; recovery_level: string;
   days_per_week: string; custom_note: string;
-  // FIX: track raw input separately for flexible parsing
-  heightRaw: string; weightRaw: string;
+  // Unit preferences — stored separately, do NOT persist to API
+  heightUnit: 'cm' | 'ft';
+  weightUnit: 'kg' | 'lbs';
+  // Raw ft/in inputs (displayed only when heightUnit === 'ft')
+  heightFt: string;
+  heightIn: string;
+  // Raw lbs input (displayed only when weightUnit === 'lbs')
+  weightLbs: string;
 }
 
 const DEFAULT_FORM: FormData = {
@@ -160,7 +149,8 @@ const DEFAULT_FORM: FormData = {
   equipment: [], weak_muscles: [],
   intensity_style: 'balanced', recovery_level: 'normal',
   days_per_week: '4', custom_note: '',
-  heightRaw: '', weightRaw: '',
+  heightUnit: 'cm', weightUnit: 'kg',
+  heightFt: '', heightIn: '', weightLbs: '',
 };
 
 function validateNumber(value: string, key: 'age' | 'height' | 'weight'): string | null {
@@ -172,34 +162,45 @@ function validateNumber(value: string, key: 'age' | 'height' | 'weight'): string
   return null;
 }
 
-// FIX: Context-aware validation warnings ──────────────────────────────────────
 function getContextWarnings(form: FormData): string[] {
   const warnings: string[] = [];
   const age = parseInt(form.age, 10);
   const weight = parseInt(form.weight, 10);
-
-  if (!isNaN(age) && age < 16 && form.intensity_style === 'strength') {
+  if (!isNaN(age) && age < 16 && form.intensity_style === 'strength')
     warnings.push('Heavy strength training is not recommended under 16. Consider Balanced instead.');
-  }
-  if (!isNaN(age) && age < 14) {
+  if (!isNaN(age) && age < 14)
     warnings.push('For users under 14, we recommend light, supervised exercise only.');
-  }
-  if (!isNaN(weight) && weight < 50 && form.goal === 'fat_loss') {
+  if (!isNaN(weight) && weight < 50 && form.goal === 'fat_loss')
     warnings.push('Your weight is low — consider Muscle Gain or Recomp as a safer goal.');
-  }
   return warnings;
 }
 
 function getSummaryParts(form: FormData): string[] {
   const parts: string[] = [];
-  if (form.goal)          parts.push(GOALS.find(g => g.value === form.goal)?.label ?? '');
+  if (form.goal) parts.push(GOALS.find(g => g.value === form.goal)?.label ?? '');
   if (form.days_per_week) parts.push(`${form.days_per_week}×/wk`);
-  if (form.location)      parts.push(LOCATIONS.find(l => l.value === form.location)?.label ?? '');
-  if (form.focus)         parts.push(FOCUS_OPTS.find(f => f.value === form.focus)?.label ?? '');
+  if (form.location) parts.push(LOCATIONS.find(l => l.value === form.location)?.label ?? '');
+  if (form.focus) parts.push(FOCUS_OPTS.find(f => f.value === form.focus)?.label ?? '');
   return parts.filter(Boolean);
 }
 
-// ── Primitive components ──────────────────────────────────────────────────────
+function getWorkoutPreview(form: FormData) {
+  const splitType = (() => {
+    if (!form.focus) return '—';
+    if (form.focus === 'full_body') return 'Full Body';
+    if (['push', 'pull', 'legs'].includes(form.focus)) return 'PPL Split';
+    if (['upper_body', 'lower_body'].includes(form.focus)) return 'Upper/Lower';
+    return 'Isolation Split';
+  })();
+  const difficulty = (() => {
+    if (!form.experience) return '—';
+    return { beginner: 'Beginner', intermediate: 'Moderate', advanced: 'High Intensity' }[form.experience] ?? '—';
+  })();
+  const duration = form.duration ? `${form.duration} min` : '—';
+  return { splitType, difficulty, duration };
+}
+
+// ── Primitive UI components ───────────────────────────────────────────────────
 
 function Label({ text, optional, hint }: { text: string; optional?: boolean; hint?: string }) {
   return (
@@ -213,50 +214,131 @@ function Label({ text, optional, hint }: { text: string; optional?: boolean; hin
   );
 }
 
-// FIX: TextInput now accepts flexible input and shows parsed value ──────────────
-function TextInput({
-  placeholder, value, rawValue, onChange, onRawChange, suffix, type = 'text',
-  inputMode, error, helperText, flexible = false,
+// ── Unit Toggle ───────────────────────────────────────────────────────────────
+function UnitToggle<T extends string>({
+  options,
+  value,
+  onChange,
 }: {
-  placeholder: string; value: string; rawValue?: string; onChange: (v: string) => void;
-  onRawChange?: (v: string) => void; suffix?: string; type?: string;
+  options: { value: T; label: string }[];
+  value: T;
+  onChange: (v: T) => void;
+}) {
+  return (
+    <div className="flex items-center gap-0.5 bg-[#1A1A1A] border border-[#2A2A2A] rounded-lg p-0.5">
+      {options.map(opt => (
+        <button
+          key={opt.value}
+          onClick={() => onChange(opt.value)}
+          className="relative px-3 py-1.5 rounded-md font-mono text-[11px] font-bold tracking-[0.08em] uppercase transition-all duration-200"
+          style={{
+            background: value === opt.value ? '#C8F135' : 'transparent',
+            color: value === opt.value ? '#000' : '#555',
+          }}
+          style={{ WebkitTapHighlightColor: 'transparent' } as React.CSSProperties}
+        >
+          {opt.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+// ── TextInput ─────────────────────────────────────────────────────────────────
+function TextInput({
+  placeholder, value, onChange, suffix, type = 'text',
+  inputMode, error, helperText,
+}: {
+  placeholder: string; value: string; onChange: (v: string) => void;
+  suffix?: string; type?: string;
   inputMode?: React.HTMLAttributes<HTMLInputElement>['inputMode'];
-  error?: string | null; helperText?: string; flexible?: boolean;
+  error?: string | null; helperText?: string;
 }) {
   const [focused, setFocused] = useState(false);
-  const displayValue = flexible && rawValue !== undefined ? rawValue : value;
   const borderColor = error ? 'border-[#FF6B6B]' : focused ? 'border-[#C8F135]' : 'border-[#2A2A2A]';
-  const shadowClass  = error ? 'shadow-[0_0_0_3px_rgba(255,107,107,0.08)]' : focused ? 'shadow-[0_0_0_3px_rgba(200,241,53,0.07)]' : '';
-
+  const shadowClass = error ? 'shadow-[0_0_0_3px_rgba(255,107,107,0.08)]' : focused ? 'shadow-[0_0_0_3px_rgba(200,241,53,0.07)]' : '';
   return (
-    <div className="relative mb-4">
+    <div className="relative">
       <div className={`relative flex items-center bg-[#1E1E1E] border-[1.5px] rounded-xl transition-all duration-200 ${borderColor} ${shadowClass}`}>
         <input
-          type={flexible ? 'text' : type}
+          type={type}
           inputMode={inputMode}
-          value={displayValue}
-          onChange={e => {
-            if (flexible && onRawChange) onRawChange(e.target.value);
-            else onChange(e.target.value);
-          }}
+          value={value}
+          onChange={e => onChange(e.target.value)}
           placeholder={placeholder}
           onFocus={() => setFocused(true)}
           onBlur={() => setFocused(false)}
-          className="w-full h-[52px] bg-transparent px-4 text-[15px] font-medium text-white placeholder-[#555] font-sans focus:outline-none"
+          className="w-full h-[52px] bg-transparent px-4 text-[15px] font-medium text-white placeholder-[#444] font-sans focus:outline-none"
           style={{ paddingRight: suffix ? '52px' : undefined, caretColor: '#C8F135' }}
         />
         {suffix && (
-          <span className="absolute right-3.5 font-mono text-[10px] font-bold text-[#888] tracking-[0.08em] uppercase pointer-events-none">
+          <span className="absolute right-3.5 font-mono text-[10px] font-bold text-[#666] tracking-[0.08em] uppercase pointer-events-none">
             {suffix}
           </span>
         )}
       </div>
-      {/* FIX: Show parsed value hint when flexible and has raw input */}
-      {flexible && rawValue && value && rawValue !== value && !error && (
-        <p className="mt-1.5 text-[11px] text-[#C8F135] font-sans font-medium">→ Saved as {value} {suffix?.toLowerCase()}</p>
-      )}
       {error && <p className="mt-1.5 text-[11px] text-[#FF6B6B] font-sans font-medium">{error}</p>}
       {!error && helperText && <p className="mt-1.5 text-[11px] text-[#555] font-sans">{helperText}</p>}
+    </div>
+  );
+}
+
+// ── Feet + Inches dual input ──────────────────────────────────────────────────
+function FtInInput({
+  ft, inch, onFtChange, onInChange, error,
+}: {
+  ft: string; inch: string;
+  onFtChange: (v: string) => void;
+  onInChange: (v: string) => void;
+  error?: string | null;
+}) {
+  const [focusedFt, setFocusedFt] = useState(false);
+  const [focusedIn, setFocusedIn] = useState(false);
+  const borderFt = focusedFt ? 'border-[#C8F135] shadow-[0_0_0_3px_rgba(200,241,53,0.07)]' : error ? 'border-[#FF6B6B]' : 'border-[#2A2A2A]';
+  const borderIn = focusedIn ? 'border-[#C8F135] shadow-[0_0_0_3px_rgba(200,241,53,0.07)]' : error ? 'border-[#FF6B6B]' : 'border-[#2A2A2A]';
+
+  // Derived display: show converted cm as hint
+  const cmValue = ftInToCm(ft, inch);
+  const showCmHint = (ft || inch) && cmValue >= VALIDATION.height.min && cmValue <= VALIDATION.height.max;
+
+  return (
+    <div>
+      <div className="flex gap-2">
+        {/* Feet */}
+        <div className={`flex-1 relative flex items-center bg-[#1E1E1E] border-[1.5px] rounded-xl transition-all duration-200 ${borderFt}`}>
+          <input
+            type="number"
+            inputMode="numeric"
+            value={ft}
+            onChange={e => onFtChange(e.target.value.replace(/[^\d]/g, ''))}
+            placeholder="5"
+            onFocus={() => setFocusedFt(true)}
+            onBlur={() => setFocusedFt(false)}
+            className="w-full h-[52px] bg-transparent pl-4 pr-12 text-[15px] font-medium text-white placeholder-[#444] font-sans focus:outline-none"
+            style={{ caretColor: '#C8F135' }}
+          />
+          <span className="absolute right-3.5 font-mono text-[10px] font-bold text-[#666] tracking-[0.08em] uppercase pointer-events-none">FT</span>
+        </div>
+        {/* Inches */}
+        <div className={`flex-1 relative flex items-center bg-[#1E1E1E] border-[1.5px] rounded-xl transition-all duration-200 ${borderIn}`}>
+          <input
+            type="number"
+            inputMode="numeric"
+            value={inch}
+            onChange={e => onInChange(e.target.value.replace(/[^\d]/g, ''))}
+            placeholder="10"
+            onFocus={() => setFocusedIn(true)}
+            onBlur={() => setFocusedIn(false)}
+            className="w-full h-[52px] bg-transparent pl-4 pr-12 text-[15px] font-medium text-white placeholder-[#444] font-sans focus:outline-none"
+            style={{ caretColor: '#C8F135' }}
+          />
+          <span className="absolute right-3.5 font-mono text-[10px] font-bold text-[#666] tracking-[0.08em] uppercase pointer-events-none">IN</span>
+        </div>
+      </div>
+      {showCmHint && (
+        <p className="mt-1.5 text-[11px] text-[#C8F135] font-mono">→ {cmValue} cm</p>
+      )}
+      {error && <p className="mt-1.5 text-[11px] text-[#FF6B6B] font-sans font-medium">{error}</p>}
     </div>
   );
 }
@@ -274,7 +356,7 @@ function Pill({ label, sub, selected, onClick, warn = false, disabled = false }:
         ${sub ? 'flex-col items-start gap-0.5 py-2 px-3' : 'flex-row items-center py-2 px-3.5'}
         ${selected
           ? warn ? 'bg-[rgba(255,107,107,0.12)] border-[#FF6B6B] shadow-[0_0_10px_rgba(255,107,107,0.12)]'
-                 : 'bg-[rgba(200,241,53,0.1)] border-[#C8F135] shadow-[0_0_10px_rgba(200,241,53,0.1)]'
+            : 'bg-[rgba(200,241,53,0.1)] border-[#C8F135] shadow-[0_0_10px_rgba(200,241,53,0.1)]'
           : 'bg-[#1E1E1E] border-[#2A2A2A] hover:-translate-y-px'
         }
         border-[1.5px] rounded-[10px] cursor-pointer
@@ -283,12 +365,12 @@ function Pill({ label, sub, selected, onClick, warn = false, disabled = false }:
       style={{ WebkitTapHighlightColor: 'transparent' }}
     >
       <span className="text-[13px] font-bold font-sans leading-tight tracking-[0.02em]"
-            style={{ color: selected ? activeColor : 'white' }}>
+        style={{ color: selected ? activeColor : 'white' }}>
         {label}
       </span>
       {sub && (
         <span className="font-mono text-[10px] tracking-[0.04em]"
-              style={{ color: selected ? (warn ? 'rgba(255,107,107,0.7)' : 'rgba(200,241,53,0.6)') : '#888' }}>
+          style={{ color: selected ? (warn ? 'rgba(255,107,107,0.7)' : 'rgba(200,241,53,0.6)') : '#888' }}>
           {sub}
         </span>
       )}
@@ -355,9 +437,9 @@ function ExperienceCard({ value, label, sub, selected, onClick }: {
       style={{ WebkitTapHighlightColor: 'transparent' }}
     >
       <div className="flex gap-1">
-        {[1,2,3].map(i => (
+        {[1, 2, 3].map(i => (
           <div key={i} className="flex-1 h-[3px] rounded-sm transition-colors duration-200"
-               style={{ background: i <= rank ? (selected ? '#C8F135' : '#3A3A3A') : '#242424' }} />
+            style={{ background: i <= rank ? (selected ? '#C8F135' : '#3A3A3A') : '#242424' }} />
         ))}
       </div>
       <span className={`text-[13px] font-bold font-sans ${selected ? 'text-[#C8F135]' : 'text-white'}`}>{label}</span>
@@ -378,7 +460,6 @@ function InfoBanner({ icon, title, body }: { icon: string; title: string; body: 
   );
 }
 
-// FIX: Warning banner for context validation ───────────────────────────────────
 function WarningBanner({ message }: { message: string }) {
   return (
     <div className="flex gap-3 p-3.5 mb-4 rounded-xl bg-[rgba(255,200,53,0.05)] border border-[rgba(255,200,53,0.2)] border-l-2 border-l-[rgba(255,200,53,0.5)]">
@@ -401,7 +482,7 @@ function StyledTextarea({ placeholder, value, onChange }: {
       onBlur={() => setFocused(false)}
       className={`
         w-full px-4 py-3.5 bg-[#1E1E1E] border-[1.5px] rounded-xl text-[13px] text-white
-        resize-none font-sans leading-[1.65] mb-5 transition-all duration-200 focus:outline-none placeholder-[#555]
+        resize-none font-sans leading-[1.65] mb-5 transition-all duration-200 focus:outline-none placeholder-[#444]
         ${focused ? 'border-[#C8F135] shadow-[0_0_0_3px_rgba(200,241,53,0.06)]' : 'border-[#2A2A2A]'}
       `}
       style={{ caretColor: '#C8F135' }}
@@ -427,7 +508,6 @@ function ErrorCard({ message, onRetry }: { message: string; onRetry: () => void 
   );
 }
 
-// FIX: Clickable, interactive summary bar ─────────────────────────────────────
 function SummaryBar({ form, onJump }: { form: FormData; onJump: (step: number) => void }) {
   const parts = useMemo(() => getSummaryParts(form), [form]);
   if (!parts.length) return null;
@@ -449,11 +529,9 @@ function SummaryBar({ form, onJump }: { form: FormData; onJump: (step: number) =
   );
 }
 
-// FIX: Workout Preview panel ───────────────────────────────────────────────────
 function WorkoutPreview({ form }: { form: FormData }) {
   const preview = getWorkoutPreview(form);
-  const hasData = form.goal || form.experience || form.focus;
-  if (!hasData) return null;
+  if (!form.goal && !form.experience && !form.focus) return null;
   return (
     <div className="mb-6 p-4 rounded-2xl bg-[rgba(200,241,53,0.04)] border border-[rgba(200,241,53,0.15)]">
       <div className="font-mono text-[9px] text-[#C8F135] tracking-[0.2em] uppercase mb-3">Preview Your Workout</div>
@@ -473,65 +551,6 @@ function WorkoutPreview({ form }: { form: FormData }) {
   );
 }
 
-// FIX: Generation Modal — progress illusion ────────────────────────────────────
-function GenerateModal({ open }: { open: boolean }) {
-  const steps = [
-    'Analyzing your body stats…',
-    'Matching your fitness goal…',
-    'Selecting optimal exercises…',
-    'Balancing intensity & recovery…',
-    'Finalizing your plan…',
-  ];
-  const [index, setIndex] = useState(0);
-  const [barWidth, setBarWidth] = useState(10);
-
-  useEffect(() => {
-    if (!open) { setIndex(0); setBarWidth(10); return; }
-    const interval = setInterval(() => {
-      setIndex(i => (i + 1) % steps.length);
-      setBarWidth(w => Math.min(w + 14, 92));
-    }, 1500);
-    return () => clearInterval(interval);
-  }, [open]);
-
-  if (!open) return null;
-
-  return (
-    <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center">
-      <div className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-2xl p-7 w-[90%] max-w-sm text-center shadow-2xl">
-        {/* Spinner */}
-        <div className="mb-5 flex justify-center">
-          <div className="w-12 h-12 border-2 border-[#2A2A2A] border-t-[#C8F135] rounded-full animate-spin" />
-        </div>
-
-        <h2 className="text-[17px] font-black text-white mb-2 font-sans tracking-tight">
-          Building your personalized workout…
-        </h2>
-
-        {/* Dynamic step */}
-        <p className="text-[12px] text-[#888] mb-5 font-sans h-[18px] transition-all duration-300">
-          {steps[index]}
-        </p>
-
-        {/* Progress bar */}
-        <div className="h-[3px] bg-[#2A2A2A] rounded-full overflow-hidden mb-4">
-          <div
-            className="h-full bg-[#C8F135] rounded-full transition-all duration-1000 ease-out"
-            style={{ width: `${barWidth}%` }}
-          />
-        </div>
-
-        {/* Trust lines */}
-        <p className="text-[11px] text-[#555] font-sans mb-1.5">Takes ~5–10 seconds</p>
-        <p className="text-[10px] text-[#444] font-sans font-mono tracking-wide">
-          ⚡ AI-optimized based on your inputs
-        </p>
-      </div>
-    </div>
-  );
-}
-
-// FIX: First-time empty state hint ─────────────────────────────────────────────
 function FirstTimeHint() {
   return (
     <div className="mb-6 p-4 rounded-2xl border border-dashed border-[#2A2A2A] flex items-center gap-3">
@@ -544,22 +563,7 @@ function FirstTimeHint() {
   );
 }
 
-// FIX: Selection feedback hint ─────────────────────────────────────────────────
-const SELECTION_HINTS: Record<string, string> = {
-  muscle_gain:  'Great for building size — we\'ll increase volume & rest periods',
-  fat_loss:     'Adds cardio circuits & higher rep ranges to torch calories',
-  strength:     'Prioritizes heavy compound lifts with longer recovery',
-  endurance:    'Focuses on sustained effort, minimal rest, progressive overload',
-  recomp:       'Balanced macros approach — builds muscle while shedding fat',
-  flexibility:  'Adds mobility work and active stretching to your session',
-  pump:         'Increases workout intensity with higher reps',
-  strength:     'Heavy compounds, lower reps, longer rest',
-  circuit:      'Minimal rest, keeps heart rate elevated',
-  balanced:     'Mix of hypertrophy and strength work',
-  explosive:    'Power-based movements for athletic performance',
-};
-
-// ── Main ─────────────────────────────────────────────────────────────────────
+// ── Main ──────────────────────────────────────────────────────────────────────
 export default function Workout() {
   const navigate = useNavigate();
   const [step, setStep] = useState(0);
@@ -571,22 +575,18 @@ export default function Workout() {
   const [form, setForm] = useState<FormData>(() => {
     try {
       const saved = localStorage.getItem(LS_KEY);
-      if (!saved) { return DEFAULT_FORM; }
+      if (!saved) return DEFAULT_FORM;
       return { ...DEFAULT_FORM, ...JSON.parse(saved) };
     } catch { return DEFAULT_FORM; }
   });
 
-  // FIX: Detect first-time user
   useEffect(() => {
     const hasVisited = localStorage.getItem('fitforge_visited');
-    if (!hasVisited) {
-      setIsFirstTime(true);
-      localStorage.setItem('fitforge_visited', '1');
-    }
+    if (!hasVisited) { setIsFirstTime(true); localStorage.setItem('fitforge_visited', '1'); }
   }, []);
 
   useEffect(() => {
-    try { localStorage.setItem(LS_KEY, JSON.stringify(form)); } catch {}
+    try { localStorage.setItem(LS_KEY, JSON.stringify(form)); } catch { }
   }, [form]);
 
   const set = useCallback(<K extends keyof FormData>(key: K, value: FormData[K]) =>
@@ -598,58 +598,126 @@ export default function Workout() {
       return { ...prev, [key]: arr.includes(value) ? arr.filter(x => x !== value) : [...arr, value] };
     }), []);
 
-  // FIX: Smart goal selection — auto-suggest related fields
+  // ── Height unit toggle ────────────────────────────────────────────────────
+  const handleHeightUnitToggle = useCallback((unit: 'cm' | 'ft') => {
+    setForm(prev => {
+      if (unit === prev.heightUnit) return prev;
+      if (unit === 'ft') {
+        // Convert stored cm → ft/in
+        const cm = parseInt(prev.height, 10);
+        if (cm && !isNaN(cm)) {
+          const { ft, inch } = cmToFtIn(cm);
+          return { ...prev, heightUnit: 'ft', heightFt: ft, heightIn: inch };
+        }
+        return { ...prev, heightUnit: 'ft' };
+      } else {
+        // Convert ft/in → cm
+        const cm = ftInToCm(prev.heightFt, prev.heightIn);
+        return { ...prev, heightUnit: 'cm', height: cm && !isNaN(cm) ? String(cm) : '' };
+      }
+    });
+  }, []);
+
+  const handleFtChange = useCallback((ft: string) => {
+    setForm(prev => {
+      const cm = ftInToCm(ft, prev.heightIn);
+      return { ...prev, heightFt: ft, height: cm > 0 ? String(cm) : '' };
+    });
+  }, []);
+
+  const handleInChange = useCallback((inch: string) => {
+    setForm(prev => {
+      const cm = ftInToCm(prev.heightFt, inch);
+      return { ...prev, heightIn: inch, height: cm > 0 ? String(cm) : '' };
+    });
+  }, []);
+
+  const handleCmChange = useCallback((v: string) => {
+    setForm(prev => ({ ...prev, height: v.replace(/[^\d]/g, '') }));
+  }, []);
+
+  // ── Weight unit toggle ────────────────────────────────────────────────────
+  const handleWeightUnitToggle = useCallback((unit: 'kg' | 'lbs') => {
+    setForm(prev => {
+      if (unit === prev.weightUnit) return prev;
+      if (unit === 'lbs') {
+        const kg = parseInt(prev.weight, 10);
+        const lbs = kg && !isNaN(kg) ? String(kgToLbs(kg)) : '';
+        return { ...prev, weightUnit: 'lbs', weightLbs: lbs };
+      } else {
+        const kg = lbsToKg(prev.weightLbs);
+        return { ...prev, weightUnit: 'kg', weight: kg && !isNaN(kg) ? String(kg) : '' };
+      }
+    });
+  }, []);
+
+  const handleWeightKgChange = useCallback((v: string) => {
+    setForm(prev => ({ ...prev, weight: v.replace(/[^\d]/g, '') }));
+  }, []);
+
+  const handleWeightLbsChange = useCallback((v: string) => {
+    const lbs = v.replace(/[^\d]/g, '');
+    setForm(prev => {
+      const kg = lbs ? String(lbsToKg(lbs)) : '';
+      return { ...prev, weightLbs: lbs, weight: kg };
+    });
+  }, []);
+
+  // ── Goal selection ────────────────────────────────────────────────────────
   const handleGoalSelect = useCallback((goal: string) => {
     const defaults = GOAL_SMART_DEFAULTS[goal] ?? {};
     setForm(prev => ({ ...prev, goal, ...defaults }));
     setLastHint(SELECTION_HINTS[goal] ?? null);
   }, []);
 
-  // FIX: Flexible height/weight input parsing
-  const handleHeightRaw = useCallback((raw: string) => {
-    const parsed = parseHeight(raw);
-    setForm(prev => ({ ...prev, heightRaw: raw, height: parsed.value }));
-  }, []);
-
-  const handleWeightRaw = useCallback((raw: string) => {
-    const parsed = parseWeight(raw);
-    setForm(prev => ({ ...prev, weightRaw: raw, weight: parsed.value }));
-  }, []);
-
-  const ageError    = useMemo(() => form.age    ? validateNumber(form.age,    'age')    : null, [form.age]);
+  const ageError = useMemo(() => form.age ? validateNumber(form.age, 'age') : null, [form.age]);
   const heightError = useMemo(() => form.height ? validateNumber(form.height, 'height') : null, [form.height]);
   const weightError = useMemo(() => form.weight ? validateNumber(form.weight, 'weight') : null, [form.weight]);
-
-  // FIX: Context-aware warnings
   const contextWarnings = useMemo(() => getContextWarnings(form), [form]);
+
+  // ── Height validation considering unit ───────────────────────────────────
+  const heightInputError = useMemo(() => {
+    if (form.heightUnit === 'ft') {
+      if (!form.heightFt && !form.heightIn) return null;
+      if (form.heightFt && !form.height) return 'Enter a valid height';
+      return heightError;
+    }
+    return heightError;
+  }, [form.heightUnit, form.heightFt, form.heightIn, form.height, heightError]);
+
+  // ── Weight validation ─────────────────────────────────────────────────────
+  const weightInputError = useMemo(() => {
+    if (form.weightUnit === 'lbs') {
+      if (!form.weightLbs) return null;
+      return weightError;
+    }
+    return weightError;
+  }, [form.weightUnit, form.weightLbs, weightError]);
 
   const blockReason = useMemo(() => {
     if (step === 0) {
-      if (!form.gender)  return 'Select your gender to continue';
-      if (!form.age)     return 'Enter your age to continue';
-      if (ageError)      return ageError;
-      if (!form.height)  return 'Enter your height to continue';
-      if (heightError)   return heightError;
-      if (!form.weight)  return 'Enter your weight to continue';
-      if (weightError)   return weightError;
+      if (!form.gender) return 'Select your gender to continue';
+      if (!form.age) return 'Enter your age to continue';
+      if (ageError) return ageError;
+      if (!form.height) return 'Enter your height to continue';
+      if (heightInputError) return heightInputError;
+      if (!form.weight) return 'Enter your weight to continue';
+      if (weightInputError) return weightInputError;
     }
     if (step === 1) {
-      if (!form.goal)       return 'Select your primary goal to continue';
+      if (!form.goal) return 'Select your primary goal to continue';
       if (!form.experience) return 'Select your experience level to continue';
     }
     if (step === 2) {
-      if (!form.focus)    return 'Select a focus area to continue';
+      if (!form.focus) return 'Select a focus area to continue';
     }
     return null;
-  }, [step, form, ageError, heightError, weightError]);
+  }, [step, form, ageError, heightInputError, weightInputError]);
 
   const canProceed = !blockReason;
-
-  // FIX: Progress indicator
   const progress = ((step + 1) / STEPS.length) * 100;
   const stepsLeft = STEPS.length - step - 1;
 
-  // FIX: Allow step jumping from summary
   const handleJump = useCallback((targetStep: number) => {
     if (targetStep < step || !blockReason) setStep(targetStep);
   }, [step, blockReason]);
@@ -660,12 +728,11 @@ export default function Workout() {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 30_000);
     try {
-      const age    = parseInt(form.age,    10);
+      const age = parseInt(form.age, 10);
       const height = parseInt(form.height, 10);
       const weight = parseInt(form.weight, 10);
-      if (isNaN(age) || isNaN(height) || isNaN(weight)) {
+      if (isNaN(age) || isNaN(height) || isNaN(weight))
         throw new Error('Please check your body stats — some values are invalid.');
-      }
 
       const body: GenerateWorkoutBody = {
         age, gender: form.gender.toLowerCase(),
@@ -680,7 +747,7 @@ export default function Workout() {
         custom_note: form.custom_note || undefined,
       };
       const data = await api.generateWorkout(body);
-      try { localStorage.removeItem(LS_KEY); } catch {}
+      try { localStorage.removeItem(LS_KEY); } catch { }
       navigate('/result', { state: { workout: data } });
     } catch (err: unknown) {
       const msg = err instanceof Error
@@ -693,15 +760,14 @@ export default function Workout() {
     }
   }, [form, navigate]);
 
-  // ── Step content ────────────────────────────────────────────────────────────
+  // ── Step content ──────────────────────────────────────────────────────────
   const renderStep = () => {
     switch (step) {
       case 0: return (
         <div>
-          {/* FIX: First-time empty state */}
           {isFirstTime && <FirstTimeHint />}
 
-          <Label text="Gender" hint="We use this to personalize your plan" />
+          <Label text="Gender" hint="Personalizes your hormonal baseline" />
           <div className="grid grid-cols-3 gap-2.5 mb-5">
             {GENDERS.map(g => (
               <button key={g.value} onClick={() => set('gender', g.value)}
@@ -722,44 +788,99 @@ export default function Workout() {
             ))}
           </div>
 
-          <Label text="Age" hint="Helps calibrate volume and recovery" />
-          <TextInput
-            placeholder="e.g. 25" value={form.age}
-            onChange={v => set('age', v.replace(/\D/g, ''))}
-            suffix="YRS" type="number" inputMode="numeric"
-            error={ageError}
-          />
+          <Label text="Age" hint="Calibrates volume & recovery" />
+          <div className="mb-4">
+            <TextInput
+              placeholder="e.g. 25" value={form.age}
+              onChange={v => set('age', v.replace(/\D/g, ''))}
+              suffix="YRS" type="number" inputMode="numeric"
+              error={ageError}
+            />
+          </div>
 
-          {/* FIX: Context warnings */}
           {contextWarnings.map((w, i) => <WarningBanner key={i} message={w} />)}
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              {/* FIX: Flexible height input */}
-              <Label text="Height" hint="cm, ft'in, or just a number" />
+          {/* HEIGHT ─────────────────────────────────────────────────────────── */}
+          <div className="mb-4">
+            <div className="flex items-center justify-between mb-2.5">
+              <div className="flex items-center gap-2">
+                <span className="font-mono text-[10px] font-bold tracking-[0.16em] uppercase text-[#888]">Height</span>
+              </div>
+              <UnitToggle
+                options={[{ value: 'cm', label: 'CM' }, { value: 'ft', label: 'FT' }]}
+                value={form.heightUnit}
+                onChange={handleHeightUnitToggle}
+              />
+            </div>
+
+            {form.heightUnit === 'cm' ? (
               <TextInput
-                placeholder="170cm or 5'10" value={form.height}
-                rawValue={form.heightRaw}
-                onChange={v => set('height', v)}
-                onRawChange={handleHeightRaw}
+                placeholder="e.g. 175"
+                value={form.height}
+                onChange={handleCmChange}
                 suffix="CM"
+                inputMode="numeric"
                 error={heightError}
-                flexible
+              />
+            ) : (
+              <FtInInput
+                ft={form.heightFt}
+                inch={form.heightIn}
+                onFtChange={handleFtChange}
+                onInChange={handleInChange}
+                error={heightInputError}
+              />
+            )}
+          </div>
+
+          {/* WEIGHT ─────────────────────────────────────────────────────────── */}
+          <div className="mb-5">
+            <div className="flex items-center justify-between mb-2.5">
+              <div className="flex items-center gap-2">
+                <span className="font-mono text-[10px] font-bold tracking-[0.16em] uppercase text-[#888]">Weight</span>
+              </div>
+              <UnitToggle
+                options={[{ value: 'kg', label: 'KG' }, { value: 'lbs', label: 'LBS' }]}
+                value={form.weightUnit}
+                onChange={handleWeightUnitToggle}
               />
             </div>
-            <div>
-              {/* FIX: Flexible weight input */}
-              <Label text="Weight" hint="kg or lbs accepted" />
-              <TextInput
-                placeholder="70kg or 154lbs" value={form.weight}
-                rawValue={form.weightRaw}
-                onChange={v => set('weight', v)}
-                onRawChange={handleWeightRaw}
-                suffix="KG"
-                error={weightError}
-                flexible
-              />
-            </div>
+
+            {form.weightUnit === 'kg' ? (
+              <div>
+                <TextInput
+                  placeholder="e.g. 75"
+                  value={form.weight}
+                  onChange={handleWeightKgChange}
+                  suffix="KG"
+                  inputMode="numeric"
+                  error={weightError}
+                />
+                {/* Show lbs hint */}
+                {form.weight && !weightError && (
+                  <p className="mt-1.5 text-[11px] text-[#555] font-mono">
+                    → {kgToLbs(parseInt(form.weight, 10))} lbs
+                  </p>
+                )}
+              </div>
+            ) : (
+              <div>
+                <TextInput
+                  placeholder="e.g. 165"
+                  value={form.weightLbs}
+                  onChange={handleWeightLbsChange}
+                  suffix="LBS"
+                  inputMode="numeric"
+                  error={weightInputError}
+                />
+                {/* Show kg hint */}
+                {form.weightLbs && !weightInputError && form.weight && (
+                  <p className="mt-1.5 text-[11px] text-[#C8F135] font-mono">
+                    → {form.weight} kg
+                  </p>
+                )}
+              </div>
+            )}
           </div>
 
           <Label text="Training days / week" optional />
@@ -780,12 +901,9 @@ export default function Workout() {
             ))}
           </div>
 
-          {/* FIX: Selection feedback hint */}
           {lastHint && (
             <div className="mb-5 px-3 py-2 rounded-lg bg-[rgba(200,241,53,0.05)] border border-[rgba(200,241,53,0.1)]">
-              <p className="text-[11px] text-[#C8F135] font-sans">
-                👉 {lastHint}
-              </p>
+              <p className="text-[11px] text-[#C8F135] font-sans">👉 {lastHint}</p>
               {form.cardio !== 'none' && (
                 <p className="text-[10px] text-[#666] font-sans mt-0.5 font-mono">
                   Recommended: Cardio → {CARDIO_OPTS.find(c => c.value === form.cardio)?.label}
@@ -802,9 +920,13 @@ export default function Workout() {
           </div>
 
           <Label text="Training Style" optional />
-          <PillGroup options={INTENSITY_OPTS} selected={form.intensity_style} onSelect={v => { set('intensity_style', v); setLastHint(SELECTION_HINTS[v] ?? null); }} />
+          <PillGroup
+            options={INTENSITY_OPTS}
+            selected={form.intensity_style}
+            onSelect={v => { set('intensity_style', v); setLastHint(SELECTION_HINTS[v] ?? null); }}
+          />
 
-          <Label text="Focus Area" hint="Primary muscle group for this workout" />
+          <Label text="Focus Area" hint="Primary muscle group" />
           <PillGroup options={FOCUS_OPTS} selected={form.focus} onSelect={v => set('focus', v)} />
 
           <Label text="Session Duration" />
@@ -814,7 +936,6 @@ export default function Workout() {
             ))}
           </div>
 
-          {/* FIX: Workout preview */}
           <WorkoutPreview form={form} />
         </div>
       );
@@ -856,11 +977,11 @@ export default function Workout() {
           <Label text="Cardio" optional />
           <PillGroup options={CARDIO_OPTS} selected={form.cardio} onSelect={v => set('cardio', v)} />
 
-          <InfoBanner icon="◈" title="Lagging Muscles" body="The AI adds targeted extra volume and specific exercises for these areas." />
+          <InfoBanner icon="◈" title="Lagging Muscles" body="Extra targeted volume and exercises for these areas." />
           <Label text="Select all that apply" optional />
           <PillGroup options={WEAK_MUSCLES} selected={form.weak_muscles} onSelect={v => toggleArr('weak_muscles', v)} multi />
 
-          <InfoBanner icon="◉" title="Energy Today" body="Adjusts total volume, sets, and rest periods to match how you're feeling." />
+          <InfoBanner icon="◉" title="Energy Today" body="Adjusts volume, sets, and rest to match how you feel." />
           <Label text="Current energy level" optional />
           <PillGroup options={RECOVERY_OPTS} selected={form.recovery_level} onSelect={v => set('recovery_level', v)} />
 
@@ -880,7 +1001,6 @@ export default function Workout() {
             onChange={v => set('custom_note', v)}
           />
 
-          {/* FIX: Final preview before generate */}
           <WorkoutPreview form={form} />
         </div>
       );
@@ -890,7 +1010,6 @@ export default function Workout() {
   };
 
   // ── CTAs ──────────────────────────────────────────────────────────────────
-  // FIX: Outcome-driven next labels + remaining time hint
   const nextLabels = ['Next: Set your goal →', 'Next: Session details →'];
 
   const CTAContinue = (
@@ -910,10 +1029,9 @@ export default function Workout() {
       >
         {nextLabels[step] ?? 'Continue →'}
       </button>
-      {/* FIX: Show progress clarity + block reason */}
       {canProceed && stepsLeft > 0 && (
         <p className="mt-2 text-center text-[10px] text-[#444] font-mono tracking-wide">
-          {stepsLeft} step{stepsLeft > 1 ? 's' : ''} left · ~{stepsLeft * 20} sec remaining
+          {stepsLeft} step{stepsLeft > 1 ? 's' : ''} left · ~{stepsLeft * 20}s remaining
         </p>
       )}
       {!canProceed && blockReason && (
@@ -922,7 +1040,6 @@ export default function Workout() {
     </div>
   );
 
-  // FIX: Outcome-driven CTA copy
   const CTAGenerate = (
     <div>
       <button
@@ -938,7 +1055,6 @@ export default function Workout() {
         `}
         style={{ WebkitTapHighlightColor: 'transparent' }}
       >
-        {/* FIX: No spinner in button — modal handles the loading state */}
         ⚡ Build My Personalized Workout
       </button>
       {!canProceed && blockReason && (
@@ -949,6 +1065,15 @@ export default function Workout() {
 
   const isLastStep = step === STEPS.length - 1;
   const CTA = isLastStep ? CTAGenerate : CTAContinue;
+
+  // ── LOADING MODAL STEPS ──────────────────────────────────────────────────
+  const MODAL_STEPS = [
+    { label: 'Analyzing your body stats…', icon: '◈' },
+    { label: 'Matching your fitness goal…', icon: '◎' },
+    { label: 'Selecting optimal exercises…', icon: '◆' },
+    { label: 'Balancing intensity & recovery…', icon: '◉' },
+    { label: 'Finalizing your personalized plan…', icon: '⚡' },
+  ];
 
   return (
     <>
@@ -971,8 +1096,15 @@ export default function Workout() {
         .fade-anim { animation: fadeIn  0.3s ease; }
       `}</style>
 
-      {/* FIX: Generation modal — shown over everything while loading */}
-      <GenerateModal open={loading} />
+      {/* ── Enhanced Loading Modal ── */}
+      <LoadingModal
+        isOpen={loading}
+        steps={MODAL_STEPS}
+        title="Building your personalized workout"
+        subtitle="Our AI is crafting a plan tailored just for you"
+        intervalMs={1800}
+        showCompletionEffect
+      />
 
       <div className="min-h-svh bg-[#0E0E0E] text-white" style={{ fontFamily: "'DM Sans', sans-serif" }}>
         <div className="min-h-svh grid grid-cols-1 md:grid-cols-[300px_1fr]">
@@ -981,7 +1113,7 @@ export default function Workout() {
           <aside className="hidden md:flex flex-col justify-between px-8 py-10 border-r border-[#242424] sticky top-0 h-svh overflow-hidden">
             <div>
               <div className="mb-10 tracking-[0.1em] text-[#C8F135]"
-                   style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 28 }}>
+                style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 28 }}>
                 FORGE
               </div>
 
@@ -990,12 +1122,11 @@ export default function Workout() {
                   {STEPS[step].index} — {STEPS[step].sub}
                 </div>
                 <h1 className="leading-[0.88] tracking-[0.02em] text-white mb-4 break-words"
-                    style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 'clamp(3rem,3.5vw,4rem)' }}>
+                  style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 'clamp(3rem,3.5vw,4rem)' }}>
                   {STEPS[step].title}
                 </h1>
                 <div className="w-9 h-0.5 bg-[#C8F135] rounded-sm mb-7" />
 
-                {/* FIX: Clickable step navigation */}
                 <div className="flex flex-col gap-3">
                   {STEPS.map((s, i) => (
                     <button
@@ -1007,19 +1138,19 @@ export default function Workout() {
                       <div className={`
                         w-7 h-7 rounded-full shrink-0 flex items-center justify-center
                         border-[1.5px] transition-all duration-300
-                        ${i < step  ? 'bg-[#C8F135] border-[#C8F135]'
-                        : i === step ? 'bg-[rgba(200,241,53,0.12)] border-[#C8F135]'
-                        : 'bg-[#1E1E1E] border-[#2A2A2A]'}
+                        ${i < step ? 'bg-[#C8F135] border-[#C8F135]'
+                          : i === step ? 'bg-[rgba(200,241,53,0.12)] border-[#C8F135]'
+                            : 'bg-[#1E1E1E] border-[#2A2A2A]'}
                       `}>
                         {i < step
                           ? <span className="text-black text-[12px] font-black">✓</span>
                           : <span className="font-mono text-[9px] font-bold"
-                                  style={{ color: i === step ? '#C8F135' : '#555' }}>{s.index}</span>
+                            style={{ color: i === step ? '#C8F135' : '#555' }}>{s.index}</span>
                         }
                       </div>
                       <div className="text-left">
                         <div className="text-[12px] font-sans transition-colors duration-200"
-                             style={{ fontWeight: i === step ? 700 : 500, color: i === step ? '#fff' : i < step ? '#C8F135' : '#888' }}>
+                          style={{ fontWeight: i === step ? 700 : 500, color: i === step ? '#fff' : i < step ? '#C8F135' : '#888' }}>
                           {s.title}
                           {i < step && <span className="ml-1.5 font-mono text-[9px] text-[#555]">← edit</span>}
                         </div>
@@ -1037,7 +1168,6 @@ export default function Workout() {
               </div>
             </div>
 
-            {/* Sidebar CTA */}
             <div className="flex flex-col gap-2.5">
               {apiError && <ErrorCard message={apiError} onRetry={handleGenerate} />}
               {CTA}
@@ -1055,11 +1185,11 @@ export default function Workout() {
           {/* ══ MAIN COLUMN ══ */}
           <div className="flex flex-col min-h-svh">
 
-            {/* ── Mobile top bar ── */}
+            {/* Mobile top bar */}
             <div className="md:hidden sticky top-0 z-50 bg-[rgba(14,14,14,0.93)] backdrop-blur border-b border-[#242424]">
               <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#242424]">
                 <div className="h-full bg-[#C8F135] transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)]"
-                     style={{ width: `${progress}%` }} />
+                  style={{ width: `${progress}%` }} />
               </div>
               <div className="flex items-center justify-between h-[60px] px-5">
                 <button
@@ -1068,12 +1198,11 @@ export default function Workout() {
                   style={{ WebkitTapHighlightColor: 'transparent' }}
                 >‹</button>
                 <span className="tracking-[0.08em] text-[#C8F135]"
-                      style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 20 }}>FORGE</span>
+                  style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 20 }}>FORGE</span>
                 <div className="text-right">
                   <div className="font-mono text-[11px] text-[#888] tracking-[0.1em]">
-                    {String(step + 1).padStart(2,'0')}/{STEPS.length}
+                    {String(step + 1).padStart(2, '0')}/{STEPS.length}
                   </div>
-                  {/* FIX: Show time remaining */}
                   <div className="font-mono text-[9px] text-[#555]">
                     {stepsLeft > 0 ? `~${stepsLeft * 20}s left` : 'Last step'}
                   </div>
@@ -1081,10 +1210,9 @@ export default function Workout() {
               </div>
             </div>
 
-            {/* FIX: Clickable summary bar */}
             <SummaryBar form={form} onJump={handleJump} />
 
-            {/* ── Scrollable form area ── */}
+            {/* Scrollable form area */}
             <div className="flex-1 overflow-y-auto px-5 pt-7 pb-3 sm:px-8 sm:pt-8 md:px-12 md:pt-11 lg:px-[72px] lg:pt-[52px]">
 
               {/* Mobile step header */}
@@ -1103,37 +1231,32 @@ export default function Workout() {
                   {STEPS[step].index} — {STEPS[step].sub}
                 </div>
                 <h1 className="leading-[0.9] tracking-[0.02em] text-white"
-                    style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 'clamp(3rem,9vw,4.5rem)' }}>
+                  style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 'clamp(3rem,9vw,4.5rem)' }}>
                   {STEPS[step].title}
                 </h1>
               </div>
 
               {/* Desktop step hint */}
               <div className="hidden md:block mb-9 step-anim" key={`desk-h-${step}`}>
-                <div className="font-mono text-[10px] text-[#555] tracking-[0.18em] uppercase mb-2">
-                  // Fill in the details below
-                </div>
+                <div className="font-mono text-[10px] text-[#555] tracking-[0.18em] uppercase mb-2">// Fill in the details below</div>
                 <div className="w-8 h-0.5 bg-[#C8F135] rounded-sm" />
               </div>
 
-              {/* FIX: Error card moved into main column (mobile) */}
               {apiError && (
                 <div className="md:hidden">
                   <ErrorCard message={apiError} onRetry={handleGenerate} />
                 </div>
               )}
 
-              {/* Step content */}
               <div className="step-anim" key={`content-${step}`}>
                 {renderStep()}
               </div>
             </div>
 
-            {/* ── Mobile sticky footer ── */}
+            {/* Mobile sticky footer */}
             <div className="md:hidden sticky bottom-0 z-40 bg-[rgba(14,14,14,0.96)] backdrop-blur border-t border-[#242424] px-5 pt-4 pb-5">
               {CTA}
             </div>
-
           </div>
         </div>
       </div>
