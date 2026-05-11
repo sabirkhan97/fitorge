@@ -116,7 +116,7 @@ export default function Home() {
               <span className="text-[#C8F135]">FORGED.</span>
             </h1>
             <p className="text-gray-400 max-w-md text-base">
-              Generate science-backed workout programs tailored to your body, goals, and available time. No guesswork — just results.
+              Generate science-based workout programs tailored to your body, goals, and available time. No guesswork — just results.
             </p>
             <div className="flex flex-wrap gap-4">
               <a href="/workout" className="bg-[#C8F135] text-black font-bold px-6 py-3 rounded-full text-sm hover:bg-[#d4ff3e] transition inline-flex items-center gap-2">
