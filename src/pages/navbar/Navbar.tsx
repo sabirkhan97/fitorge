@@ -24,7 +24,7 @@ export default function Navbar() {
     { name: 'Programs', path: '/programs' },
     { name: 'Muscles', path: '/muscles' },
     { name: 'About', path: '/about' },
-    
+
   ];
 
   useEffect(() => {
@@ -32,8 +32,8 @@ export default function Navbar() {
   }, [location.pathname]);
 
   return (
-    <>
-      <nav className="fixed top-[28px] left-0 right-0 z-50 bg-black/90 backdrop-blur-md border-b border-gray-800">
+    
+      <nav className="fixed top-7 left-0 right-0 z-50 bg-black/90 backdrop-blur-md border-b border-gray-800">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             {/* Logo */}
@@ -163,6 +163,5 @@ export default function Navbar() {
           </div>
         )}
       </nav>
-    </>
   );
 }
