@@ -1265,7 +1265,7 @@ export default function Workout() {
           {/* Main column */}
           <div className="flex flex-col min-h-svh">
             {/* Mobile top bar */}
-            <div className="md:hidden sticky top-0 z-50 bg-[rgba(14,14,14,0.93)] backdrop-blur border-b border-[#242424]">
+            {/* <div className="md:hidden sticky top-0 z-50 bg-[rgba(14,14,14,0.93)] backdrop-blur border-b border-[#242424]">
               <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#242424]"><div className="h-full bg-[#C8F135] transition-all duration-500" style={{ width: `${progress}%` }} /></div>
               <div className="flex items-center justify-between h-[60px] px-5">
                 <button onClick={() => step > 0 ? setStep(s => s - 1) : navigate('/')} className="w-9 h-9 bg-[#1E1E1E] border border-[#2A2A2A] rounded-xl flex items-center justify-center text-white text-xl">‹</button>
@@ -1279,7 +1279,7 @@ export default function Workout() {
                 <button onClick={saveDefaults} className="flex-1 text-[10px] py-1.5 rounded-full bg-[#C8F135]/10 border border-[#C8F135]/30 text-[#C8F135] font-mono uppercase tracking-wider">💾 Save as Default</button>
                 <button onClick={resetDefaults} className="flex-1 text-[10px] py-1.5 rounded-full bg-gray-800 border border-gray-700 text-gray-400 font-mono uppercase tracking-wider">↺ Reset</button>
               </div>
-            </div>
+            </div> */}
 
             <SummaryBar form={form} onJump={handleJump} />
 

@@ -94,22 +94,18 @@ export default function Home() {
     return () => observer.disconnect();
   }, []);
 
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-    navigate('/');
-  };
+ 
 
   return (
     <div className="min-h-screen bg-black text-white font-sans">
       {/* Fixed Navbar – adjusted for announcement bar (top: 56px) */}
-
       {/* Main content – adds padding top to account for fixed header (56px bar + 64px nav = 120px) */}
-      <main className="pt-[120px] md:pt-[120px]">
+      <main className="md:pt-30">
         {/* Hero Section */}
         <section className="grid md:grid-cols-2 min-h-[calc(100vh-120px)] items-center px-6 md:px-12 lg:px-20 py-12">
           {/* Left */}
           <div className="space-y-6">
-            <div className="text-xs font-mono text-[#C8F135] tracking-widest uppercase">// AI-Powered Training</div>
+            <div className="text-xs font-mono text-[#C8F135] tracking-widest uppercase"> {"//"} AI-Powered Training</div>
             <h1 className="text-6xl sm:text-7xl md:text-8xl lg:text-9xl font-black leading-[0.9] tracking-tight" style={{ fontFamily: "'Bebas Neue', sans-serif" }}>
               BUILT<br />TO BE<br />
               <span className="text-[#C8F135]">FORGED.</span>

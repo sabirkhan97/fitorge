@@ -3,12 +3,19 @@ import { supabase } from '../../lib/supabase'; // adjust path as needed
 import { useAuthContext } from '../../context/AuthContext'; // adjust path
 import { useState, useEffect } from 'react';
 import { FitOrge } from '../../image/Icons';
+import AnnouncementBar from '../../components/AnnouncementBar';
 
 export default function Navbar() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, session, loading: authLoading } = useAuthContext();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  
+  const announcements = [
+    { id: 1, title: "🔥 Generate unlimited workouts – FREE until launch. Start now! 🔥" },
+    { id: 2, title: "🧠 AI that learns you. Past workouts = better next plan. Try it! 🧠" },
+    { id: 3, title: "📅 Weekly + monthly plans & diet coming soon. Stay tuned! 📅" },
+  ];
 
   const isLoggedIn = !!session;
   const userName = user?.user_metadata?.username || user?.user_metadata?.name || null;
@@ -20,6 +27,7 @@ export default function Navbar() {
   };
 
   const navLinks = [
+    { name: 'Home', path: '/' },
     { name: 'Workouts', path: '/workouts' },
     { name: 'Programs', path: '/programs' },
     { name: 'Muscles', path: '/muscles' },
@@ -31,9 +39,74 @@ export default function Navbar() {
     setMobileMenuOpen(false);
   }, [location.pathname]);
 
+  let authButtons;
+
+if (authLoading) {
+  authButtons = (
+    <div className="text-xs text-gray-500">Loading...</div>
+  );
+} else if (isLoggedIn) {
+  authButtons = (
+    <>
+      <span className="text-xs text-[#C8F135] font-mono">
+        👋 {userName || 'User'}
+      </span>
+
+      <button
+        onClick={() => navigate('/history')}
+        className="text-xs bg-gray-800 text-gray-200 hover:bg-gray-700 px-3 py-1.5 rounded-full transition"
+      >
+        History
+      </button>
+
+      <button
+        onClick={() => navigate('/workout')}
+        className="text-xs bg-[#C8F135] text-gray-500 font-bold px-3 py-1.5 rounded-full hover:bg-[#d4ff3e] transition"
+      >
+        Generate
+      </button>
+
+      <button
+        onClick={handleLogout}
+        className="text-xs border border-gray-700 text-gray-200  px-3 py-1.5 rounded-full hover:bg-gray-800 transition"
+      >
+        Logout
+      </button>
+    </>
+  );
+} else {
+  authButtons = (
+    <>
+      <button
+        onClick={() => navigate('/login')}
+        className="text-xs bg-[#C8F135] text-black font-bold px-3 py-1.5 rounded-full hover:bg-[#d4ff3e] transition"
+      >
+        Login
+      </button>
+
+      <button
+        onClick={() => navigate('/signup')}
+        className="text-xs border border-gray-700 px-3 py-1.5 text-gray-200 rounded-full hover:bg-gray-800 transition"
+      >
+        Sign Up
+      </button>
+    </>
+  );
+}
+
   return (
-    
+    <>
+      <AnnouncementBar
+        announcements={announcements}
+        intervalMs={4000}
+        buttonText="Start Free Workout →"
+        buttonLink="/workout"
+        bgColor="#C8F135"
+        textColor="#000"
+        dismissible={true}
+      />
       <nav className="fixed top-7 left-0 right-0 z-50 bg-black/90 backdrop-blur-md border-b border-gray-800">
+
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             {/* Logo */}
@@ -49,11 +122,10 @@ export default function Navbar() {
                 <button
                   key={link.path}
                   onClick={() => navigate(link.path)}
-                  className={`text-sm font-mono uppercase tracking-wider transition-colors ${
-                    location.pathname === link.path
-                      ? 'text-[#C8F135]'
-                      : 'text-gray-400 hover:text-white'
-                  }`}
+                  className={`text-sm font-mono uppercase tracking-wider transition-colors ${location.pathname === link.path
+                    ? 'text-[#C8F135]'
+                    : 'text-gray-400 hover:text-white'
+                    }`}
                 >
                   {link.name}
                 </button>
@@ -62,31 +134,7 @@ export default function Navbar() {
 
             {/* Desktop Auth Buttons */}
             <div className="hidden md:flex items-center gap-3">
-              {authLoading ? (
-                <div className="text-xs text-gray-500">Loading...</div>
-              ) : isLoggedIn ? (
-                <>
-                  <span className="text-xs text-[#C8F135] font-mono">👋 {userName || 'User'}</span>
-                  <button onClick={() => navigate('/history')} className="text-xs bg-gray-800 hover:bg-gray-700 px-3 py-1.5 rounded-full transition">
-                    History
-                  </button>
-                  <button onClick={() => navigate('/workout')} className="text-xs bg-[#C8F135] text-black font-bold px-3 py-1.5 rounded-full hover:bg-[#d4ff3e] transition">
-                    Generate
-                  </button>
-                  <button onClick={handleLogout} className="text-xs border border-gray-700 px-3 py-1.5 rounded-full hover:bg-gray-800 transition">
-                    Logout
-                  </button>
-                </>
-              ) : (
-                <>
-                  <button onClick={() => navigate('/login')} className="text-xs bg-[#C8F135] text-black font-bold px-3 py-1.5 rounded-full hover:bg-[#d4ff3e] transition">
-                    Login
-                  </button>
-                  <button onClick={() => navigate('/signup')} className="text-xs border border-gray-700 px-3 py-1.5 rounded-full hover:bg-gray-800 transition">
-                    Sign Up
-                  </button>
-                </>
-              )}
+             {authButtons}
             </div>
 
             {/* Mobile right side: always show auth buttons (compact) + hamburger */}
@@ -141,11 +189,10 @@ export default function Navbar() {
                 <button
                   key={link.path}
                   onClick={() => navigate(link.path)}
-                  className={`block w-full text-left px-3 py-2 rounded-md text-base font-mono uppercase tracking-wider ${
-                    location.pathname === link.path
-                      ? 'bg-gray-800 text-[#C8F135]'
-                      : 'text-gray-300 hover:bg-gray-800'
-                  }`}
+                  className={`block w-full text-left px-3 py-2 rounded-md text-base font-mono uppercase tracking-wider ${location.pathname === link.path
+                    ? 'bg-gray-800 text-[#C8F135]'
+                    : 'text-gray-300 hover:bg-gray-800'
+                    }`}
                 >
                   {link.name}
                 </button>
@@ -163,5 +210,6 @@ export default function Navbar() {
           </div>
         )}
       </nav>
+    </>
   );
 }

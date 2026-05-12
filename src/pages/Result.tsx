@@ -1,8 +1,10 @@
 'use client';
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 
-// ── Types ────────────────────────────────────────────────────────────────────
+/* ─────────────────────────────────────────────────────────────────────────────
+   TYPES
+───────────────────────────────────────────────────────────────────────────── */
 interface WorkoutPlan {
   title: string;
   subtitle: string;
@@ -38,926 +40,592 @@ interface WorkoutPlan {
   summary: { main_benefit: string; recovery_tip: string; next_focus: string };
 }
 
-// ── Color config ─────────────────────────────────────────────────────────────
-const MUSCLE_COLORS: Record<string, string> = {
-  Chest: '#C8F135', 'Upper Chest': '#C8F135',
-  Shoulders: '#47C8FF', Back: '#B47CFF',
-  Biceps: '#FF7C47', Triceps: '#FF4747',
-  Legs: '#FFD147', Glutes: '#FF6BE8',
-  Hamstrings: '#FFD147', Calves: '#FFD147',
-  Core: '#47FFB4', Forearms: '#FF9F47',
+/* ─────────────────────────────────────────────────────────────────────────────
+   DESIGN TOKENS (colours)
+───────────────────────────────────────────────────────────────────────────── */
+const MUSCLE_COLORS: Record<string, { primary: string; bg: string; border: string }> = {
+  'Chest':       { primary: '#D4F53C', bg: 'rgba(212,245,60,0.08)',   border: 'rgba(212,245,60,0.2)' },
+  'Upper Chest': { primary: '#D4F53C', bg: 'rgba(212,245,60,0.08)',   border: 'rgba(212,245,60,0.2)' },
+  'Shoulders':   { primary: '#38BDF8', bg: 'rgba(56,189,248,0.08)',   border: 'rgba(56,189,248,0.2)' },
+  'Back':        { primary: '#A78BFA', bg: 'rgba(167,139,250,0.08)',  border: 'rgba(167,139,250,0.2)' },
+  'Biceps':      { primary: '#FB923C', bg: 'rgba(251,146,60,0.08)',   border: 'rgba(251,146,60,0.2)' },
+  'Triceps':     { primary: '#F87171', bg: 'rgba(248,113,113,0.08)',  border: 'rgba(248,113,113,0.2)' },
+  'Legs':        { primary: '#FBBF24', bg: 'rgba(251,191,36,0.08)',   border: 'rgba(251,191,36,0.2)' },
+  'Glutes':      { primary: '#F472B6', bg: 'rgba(244,114,182,0.08)',  border: 'rgba(244,114,182,0.2)' },
+  'Hamstrings':  { primary: '#FBBF24', bg: 'rgba(251,191,36,0.08)',   border: 'rgba(251,191,36,0.2)' },
+  'Calves':      { primary: '#FBBF24', bg: 'rgba(251,191,36,0.08)',   border: 'rgba(251,191,36,0.2)' },
+  'Core':        { primary: '#34D399', bg: 'rgba(52,211,153,0.08)',   border: 'rgba(52,211,153,0.2)' },
+  'Forearms':    { primary: '#FB923C', bg: 'rgba(251,146,60,0.08)',   border: 'rgba(251,146,60,0.2)' },
+};
+const getMuscle = (m: string) =>
+  MUSCLE_COLORS[m] ?? { primary: '#D4F53C', bg: 'rgba(212,245,60,0.08)', border: 'rgba(212,245,60,0.2)' };
+
+const DIFF_CFG = {
+  Beginner:     { color: '#34D399', bg: 'rgba(52,211,153,0.10)',   border: 'rgba(52,211,153,0.28)',  dots: 1 },
+  Intermediate: { color: '#FBBF24', bg: 'rgba(251,191,36,0.10)',   border: 'rgba(251,191,36,0.28)',  dots: 2 },
+  Advanced:     { color: '#F87171', bg: 'rgba(248,113,113,0.10)',  border: 'rgba(248,113,113,0.28)', dots: 3 },
 };
 
-const DIFF_CONFIG: Record<string, { color: string; label: string; bg: string }> = {
-  Beginner:     { color: '#47FFB4', label: 'BEGINNER',     bg: 'rgba(71,255,180,0.1)' },
-  Intermediate: { color: '#C8F135', label: 'INTERMEDIATE', bg: 'rgba(200,241,53,0.1)' },
-  Advanced:     { color: '#FF6B6B', label: 'ADVANCED',     bg: 'rgba(255,107,107,0.1)' },
+const WEIGHT_CFG = {
+  bodyweight: { label: 'Bodyweight', color: '#34D399' },
+  light:      { label: 'Light',      color: '#D4F53C' },
+  moderate:   { label: 'Moderate',   color: '#FBBF24' },
+  heavy:      { label: 'Heavy',      color: '#F87171' },
 };
 
-const WEIGHT_MAP: Record<string, { label: string; color: string }> = {
-  bodyweight: { label: 'BODYWEIGHT', color: '#47FFB4' },
-  light:      { label: 'LIGHT',      color: '#C8F135' },
-  moderate:   { label: 'MODERATE',   color: '#FFD147' },
-  heavy:      { label: 'HEAVY',      color: '#FF6B6B' },
-};
+const INTENSITY_PCT = { Low: 33, Moderate: 66, High: 100 };
 
-const getMuscleColor = (m: string) => MUSCLE_COLORS[m] || '#C8F135';
+/* ─────────────────────────────────────────────────────────────────────────────
+   SVGs (unchanged)
+───────────────────────────────────────────────────────────────────────────── */
+const ArrowLeft = () => (
+  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M10 3L5 8L10 13" />
+  </svg>
+);
+const ShareIcon = () => (
+  <svg viewBox="0 0 13 13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M9 2L11 4.5L9 7M11 4.5H5a3 3 0 000 6h1" />
+  </svg>
+);
+const PlusIcon = () => (
+  <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+    <path d="M7 2v10M2 7h10" />
+  </svg>
+);
+const EditIcon = () => (
+  <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M9.5 2.5l2 2-7 7H2.5v-2l7-7z" />
+  </svg>
+);
+const ChevronDown = () => (
+  <svg viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M2 3.5L5 6.5L8 3.5" />
+  </svg>
+);
 
-// ── Exercise Card (full-card tap, bold expand UX) ────────────────────────────
-const ExerciseCard = ({
-  exercise,
-  index,
-  expanded,
-  onToggle,
+/* ─────────────────────────────────────────────────────────────────────────────
+   SUB-COMPONENTS (converted to Tailwind)
+───────────────────────────────────────────────────────────────────────────── */
+const SHead = ({ icon, title }: { icon: string; title: string }) => (
+  <div className="flex items-center gap-2.5 mb-3.5">
+    <span className="text-sm shrink-0">{icon}</span>
+    <span className="font-mono text-[9px] font-semibold tracking-[0.16em] text-white/30 uppercase whitespace-nowrap">
+      {title}
+    </span>
+    <div className="flex-1 h-px bg-white/5" />
+  </div>
+);
+
+const SRow = ({ name, duration }: { name: string; duration: string }) => (
+  <div className="flex justify-between items-center p-3 bg-black/10 border border-white/5 rounded-xl hover:bg-white/5 hover:border-white/10 transition">
+    <span className="text-sm font-medium text-white/85">{name}</span>
+    <span className="font-mono text-[10px] text-white/30 bg-white/5 px-2.5 py-1 rounded-md">{duration}</span>
+  </div>
+);
+
+const ExCard = ({
+  exercise, index, expanded, onToggle,
 }: {
   exercise: WorkoutPlan['exercises'][0];
-  index: number;
-  expanded: boolean;
-  onToggle: () => void;
+  index: number; expanded: boolean; onToggle: () => void;
 }) => {
-  const color = getMuscleColor(exercise.muscle_group);
-  const wt = WEIGHT_MAP[exercise.weight] || WEIGHT_MAP.moderate;
+  const muscle = getMuscle(exercise.muscle_group);
+  const wt = WEIGHT_CFG[exercise.weight] ?? WEIGHT_CFG.moderate;
 
   return (
     <div
-      className="exercise-card"
-      style={{
-        '--accent': color,
-        background: expanded
-          ? `linear-gradient(135deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.02) 100%)`
-          : 'rgba(255,255,255,0.03)',
-        border: `1px solid ${expanded ? color + '40' : 'rgba(255,255,255,0.07)'}`,
-        borderRadius: '16px',
-        overflow: 'hidden',
-        transition: 'all 0.3s cubic-bezier(0.4,0,0.2,1)',
-        boxShadow: expanded ? `0 0 24px ${color}15, inset 0 1px 0 rgba(255,255,255,0.05)` : 'none',
-      } as React.CSSProperties}
+      className={`bg-black/10 border rounded-2xl overflow-hidden transition-all ${
+        expanded ? 'bg-white/5' : ''
+      }`}
+      style={{ borderColor: expanded ? muscle.border : 'rgba(255,255,255,0.05)' }}
     >
-      {/* Tap target – entire row */}
       <button
+        className="w-full flex items-center gap-3 p-3.5 text-left focus:outline-none hover:bg-white/5 transition"
         onClick={onToggle}
-        style={{
-          width: '100%',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '12px',
-          padding: '14px 16px',
-          background: 'none',
-          border: 'none',
-          cursor: 'pointer',
-          textAlign: 'left',
-        }}
       >
-        {/* Number badge */}
-        <div style={{
-          flexShrink: 0,
-          width: '32px',
-          height: '32px',
-          borderRadius: '8px',
-          background: expanded ? color : 'rgba(255,255,255,0.06)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          fontSize: '11px',
-          fontWeight: 800,
-          color: expanded ? '#000' : 'rgba(255,255,255,0.4)',
-          fontFamily: "'DM Mono', monospace",
-          transition: 'all 0.3s ease',
-        }}>
+        {/* Number */}
+        <div
+          className="w-9 h-9 rounded-lg flex items-center justify-center font-mono text-[11px] font-semibold transition-all shrink-0"
+          style={{
+            background: expanded ? muscle.primary : 'rgba(255,255,255,0.06)',
+            color: expanded ? '#000' : 'rgba(255,255,255,0.32)',
+          }}
+        >
           {String(index + 1).padStart(2, '0')}
         </div>
 
-        {/* Name + tags */}
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{
-            fontSize: '14px',
-            fontWeight: 700,
-            color: '#fff',
-            letterSpacing: '-0.3px',
-            fontFamily: "'Syne', sans-serif",
-            whiteSpace: 'nowrap',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-          }}>
+        {/* Info */}
+        <div className="flex-1 min-w-0">
+          <div className="text-sm font-semibold text-white truncate mb-1">
             {exercise.name}
           </div>
-          <div style={{ display: 'flex', gap: '6px', marginTop: '3px', flexWrap: 'wrap' }}>
-            <span style={{
-              fontSize: '10px',
-              fontFamily: "'DM Mono', monospace",
-              color: color,
-              background: color + '15',
-              padding: '1px 6px',
-              borderRadius: '4px',
-              textTransform: 'uppercase',
-              letterSpacing: '0.5px',
-            }}>
+          <div className="flex flex-wrap gap-1.5 items-center">
+            <span
+              className="font-mono text-[9px] font-semibold uppercase px-2 py-0.5 rounded-md"
+              style={{ color: muscle.primary, background: muscle.bg }}
+            >
               {exercise.muscle_group}
             </span>
-            <span style={{
-              fontSize: '10px',
-              fontFamily: "'DM Mono', monospace",
-              color: 'rgba(255,255,255,0.3)',
-              textTransform: 'uppercase',
-              letterSpacing: '0.5px',
-            }}>
+            <span className="font-mono text-[9px] text-white/30 uppercase">
               {exercise.category}
             </span>
           </div>
         </div>
 
-        {/* Sets×Reps + chevron */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
-          <div style={{ textAlign: 'right' }}>
-            <div style={{
-              fontSize: '13px',
-              fontWeight: 700,
-              color: '#fff',
-              fontFamily: "'DM Mono', monospace",
-            }}>
+        {/* Right metrics */}
+        <div className="flex items-center gap-2.5 shrink-0">
+          <div className="text-right">
+            <div className="font-mono text-sm font-semibold text-white">
               {exercise.sets}×{exercise.reps}
             </div>
-            <div style={{
-              fontSize: '9px',
-              color: 'rgba(255,255,255,0.3)',
-              fontFamily: "'DM Mono', monospace",
-              textTransform: 'uppercase',
-            }}>
-              sets×reps
+            <div className="font-mono text-[8px] text-white/30 uppercase tracking-wide">
+              sets × reps
             </div>
           </div>
-
-          {/* Animated chevron pill */}
-          <div style={{
-            width: '28px',
-            height: '28px',
-            borderRadius: '50%',
-            border: `1.5px solid ${expanded ? color : 'rgba(255,255,255,0.15)'}`,
-            background: expanded ? color + '20' : 'transparent',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            transition: 'all 0.3s ease',
-            flexShrink: 0,
-          }}>
-            <svg
-              width="10"
-              height="10"
-              viewBox="0 0 10 10"
-              fill="none"
-              style={{
-                transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)',
-                transition: 'transform 0.3s cubic-bezier(0.4,0,0.2,1)',
-              }}
-            >
-              <path
-                d="M2 3.5L5 6.5L8 3.5"
-                stroke={expanded ? color : 'rgba(255,255,255,0.4)'}
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
+          <div
+            className={`w-7 h-7 rounded-full border flex items-center justify-center transition-all ${
+              expanded ? 'bg-opacity-15' : ''
+            }`}
+            style={{
+              borderColor: expanded ? muscle.primary : 'rgba(255,255,255,0.1)',
+              background: expanded ? muscle.bg : 'transparent',
+              color: expanded ? muscle.primary : 'rgba(255,255,255,0.32)',
+            }}
+          >
+            <ChevronDown />
           </div>
         </div>
       </button>
 
-      {/* Expanded detail panel */}
       {expanded && (
-        <div style={{
-          padding: '0 16px 16px',
-          animation: 'slideDown 0.25s cubic-bezier(0.4,0,0.2,1)',
-        }}>
+        <div className="px-3.5 pb-3.5 border-t border-white/5 animate-in slide-in-from-top-1 duration-200">
           {/* Divider */}
-          <div style={{
-            height: '1px',
-            background: `linear-gradient(90deg, ${color}40, transparent)`,
-            marginBottom: '14px',
-          }} />
+          <div className="h-px my-3" style={{ background: `linear-gradient(90deg,${muscle.primary}55,transparent)` }} />
 
-          {/* Quick stats row */}
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(4, 1fr)',
-            gap: '8px',
-            marginBottom: '14px',
-          }}>
+          {/* Stats grid */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 mb-3">
             {[
-              { label: 'REST', value: exercise.rest },
-              { label: 'TEMPO', value: exercise.tempo },
-              { label: 'WEIGHT', value: wt.label, color: wt.color },
-              { label: 'LEVEL', value: exercise.intensity_label },
-            ].map((stat) => (
-              <div key={stat.label} style={{
-                background: 'rgba(255,255,255,0.04)',
-                borderRadius: '10px',
-                padding: '8px 6px',
-                textAlign: 'center',
-                border: '1px solid rgba(255,255,255,0.06)',
-              }}>
-                <div style={{
-                  fontSize: '8px',
-                  fontFamily: "'DM Mono', monospace",
-                  color: 'rgba(255,255,255,0.3)',
-                  letterSpacing: '0.8px',
-                  marginBottom: '3px',
-                }}>
-                  {stat.label}
+              { lbl: 'Rest', val: exercise.rest },
+              { lbl: 'Tempo', val: exercise.tempo },
+              { lbl: 'Weight', val: wt.label, color: wt.color },
+              { lbl: 'Level', val: exercise.intensity_label },
+            ].map(s => (
+              <div key={s.lbl} className="bg-white/5 rounded-lg p-2 text-center">
+                <div className="font-mono text-[8px] text-white/30 uppercase tracking-wider mb-1.5">
+                  {s.lbl}
                 </div>
-                <div style={{
-                  fontSize: '10px',
-                  fontWeight: 700,
-                  color: stat.color || '#fff',
-                  fontFamily: "'DM Mono', monospace",
-                  wordBreak: 'break-word',
-                }}>
-                  {stat.value}
+                <div className="font-mono text-[11px] font-semibold" style={{ color: s.color ?? '#fff' }}>
+                  {s.val}
                 </div>
               </div>
             ))}
           </div>
 
           {/* Tips & Mistakes */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-            {exercise.tips.length > 0 && (
-              <div style={{
-                background: 'rgba(200,241,53,0.05)',
-                border: '1px solid rgba(200,241,53,0.15)',
-                borderRadius: '10px',
-                padding: '10px',
-              }}>
-                <div style={{
-                  fontSize: '9px',
-                  fontFamily: "'DM Mono', monospace",
-                  color: '#C8F135',
-                  letterSpacing: '0.8px',
-                  marginBottom: '6px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '4px',
-                }}>
-                  <span>💡</span> TIPS
+          {(exercise.tips.length > 0 || exercise.mistakes.length > 0) && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {exercise.tips.length > 0 && (
+                <div
+                  className="rounded-xl p-3"
+                  style={{
+                    background: 'rgba(212,245,60,0.05)',
+                    border: '1px solid rgba(212,245,60,0.12)',
+                  }}
+                >
+                  <div className="flex items-center gap-1.5 text-[#D4F53C] font-mono text-[9px] font-semibold tracking-wide mb-2">
+                    <span>💡</span> Tips
+                  </div>
+                  <ul className="list-none space-y-1">
+                    {exercise.tips.map((tip, i) => (
+                      <li key={i} className="text-xs text-white/55 pl-3 relative before:content-[''] before:absolute before:left-0 before:top-1.5 before:w-1 before:h-1 before:rounded-full before:bg-[#D4F53C]">
+                        {tip}
+                      </li>
+                    ))}
+                  </ul>
                 </div>
-                <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-                  {exercise.tips.map((tip, i) => (
-                    <li key={i} style={{
-                      fontSize: '11px',
-                      color: 'rgba(255,255,255,0.65)',
-                      paddingLeft: '10px',
-                      position: 'relative',
-                      marginBottom: '4px',
-                      lineHeight: '1.4',
-                    }}>
-                      <span style={{
-                        position: 'absolute',
-                        left: 0,
-                        color: '#C8F135',
-                        fontSize: '8px',
-                        top: '3px',
-                      }}>▶</span>
-                      {tip}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-            {exercise.mistakes.length > 0 && (
-              <div style={{
-                background: 'rgba(255,107,107,0.05)',
-                border: '1px solid rgba(255,107,107,0.15)',
-                borderRadius: '10px',
-                padding: '10px',
-              }}>
-                <div style={{
-                  fontSize: '9px',
-                  fontFamily: "'DM Mono', monospace",
-                  color: '#FF6B6B',
-                  letterSpacing: '0.8px',
-                  marginBottom: '6px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '4px',
-                }}>
-                  <span>⚠️</span> AVOID
+              )}
+              {exercise.mistakes.length > 0 && (
+                <div
+                  className="rounded-xl p-3"
+                  style={{
+                    background: 'rgba(248,113,113,0.05)',
+                    border: '1px solid rgba(248,113,113,0.12)',
+                  }}
+                >
+                  <div className="flex items-center gap-1.5 text-[#F87171] font-mono text-[9px] font-semibold tracking-wide mb-2">
+                    <span>⚠</span> Avoid
+                  </div>
+                  <ul className="list-none space-y-1">
+                    {exercise.mistakes.map((mistake, i) => (
+                      <li key={i} className="text-xs text-white/55 pl-3 relative before:content-[''] before:absolute before:left-0 before:top-1.5 before:w-1 before:h-1 before:rounded-full before:bg-[#F87171]">
+                        {mistake}
+                      </li>
+                    ))}
+                  </ul>
                 </div>
-                <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-                  {exercise.mistakes.map((m, i) => (
-                    <li key={i} style={{
-                      fontSize: '11px',
-                      color: 'rgba(255,255,255,0.65)',
-                      paddingLeft: '10px',
-                      position: 'relative',
-                      marginBottom: '4px',
-                      lineHeight: '1.4',
-                    }}>
-                      <span style={{
-                        position: 'absolute',
-                        left: 0,
-                        color: '#FF6B6B',
-                        fontSize: '8px',
-                        top: '3px',
-                      }}>✕</span>
-                      {m}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-          </div>
+              )}
+            </div>
+          )}
         </div>
       )}
     </div>
   );
 };
 
-// ── Section label ────────────────────────────────────────────────────────────
-const Section = ({ icon, title }: { icon: string; title: string }) => (
-  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
-    <span style={{ fontSize: '13px' }}>{icon}</span>
-    <span style={{
-      fontSize: '10px',
-      fontFamily: "'DM Mono', monospace",
-      color: 'rgba(255,255,255,0.4)',
-      letterSpacing: '2px',
-      textTransform: 'uppercase',
-    }}>
-      {title}
-    </span>
-    <div style={{ flex: 1, height: '1px', background: 'rgba(255,255,255,0.06)' }} />
-  </div>
-);
-
-// ── Minimal row for warmup / cooldown ────────────────────────────────────────
-const SimpleRow = ({ name, duration }: { name: string; duration: string }) => (
-  <div style={{
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: '10px 14px',
-    background: 'rgba(255,255,255,0.03)',
-    borderRadius: '10px',
-    border: '1px solid rgba(255,255,255,0.06)',
-  }}>
-    <span style={{ fontSize: '13px', color: 'rgba(255,255,255,0.8)', fontFamily: "'Syne', sans-serif" }}>{name}</span>
-    <span style={{
-      fontSize: '10px',
-      fontFamily: "'DM Mono', monospace",
-      color: 'rgba(255,255,255,0.3)',
-      background: 'rgba(255,255,255,0.05)',
-      padding: '2px 8px',
-      borderRadius: '6px',
-    }}>{duration}</span>
-  </div>
-);
-
-// ── Main Component ────────────────────────────────────────────────────────────
+/* ─────────────────────────────────────────────────────────────────────────────
+   ROOT COMPONENT (Tailwind)
+───────────────────────────────────────────────────────────────────────────── */
 export default function WorkoutResult() {
   const navigate = useNavigate();
   const location = useLocation();
   const [plan, setPlan] = useState<WorkoutPlan | null>(null);
-  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [expandedId, setExpand] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
-  const [headerScrolled, setHeaderScrolled] = useState(false);
 
   useEffect(() => {
-    const fromState = (location.state as any)?.workout;
-    if (fromState) { setPlan(fromState); return; }
+    const s = (location.state as any)?.workout;
+    if (s) { setPlan(s); return; }
     try {
-      const stored = localStorage.getItem('fitforge:lastWorkout');
-      if (stored) setPlan(JSON.parse(stored));
-    } catch { }
+      const ls = localStorage.getItem('fitforge:lastWorkout');
+      if (ls) setPlan(JSON.parse(ls));
+    } catch {}
   }, [location.state]);
 
-  useEffect(() => {
-    const onScroll = () => setHeaderScrolled(window.scrollY > 20);
-    window.addEventListener('scroll', onScroll, { passive: true });
-    return () => window.removeEventListener('scroll', onScroll);
-  }, []);
-
-  const handleShare = async () => {
+  const share = useCallback(async () => {
     if (!plan) return;
-    const text = `${plan.title} — ${plan.estimated_duration}min · ~${plan.calories_estimate}cal — FitForge AI`;
+    const t = `${plan.title} — ${plan.estimated_duration}min · ~${plan.calories_estimate}kcal`;
     try {
-      if (navigator.share) await navigator.share({ title: 'My FitForge Workout', text });
-      else {
-        await navigator.clipboard.writeText(text);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
+      if (navigator.share) {
+        await navigator.share({ title: 'FitForge Workout', text: t });
+        return;
       }
-    } catch { }
-  };
+      await navigator.clipboard.writeText(t);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2200);
+    } catch {}
+  }, [plan]);
 
+  const toggle = useCallback((id: string) => setExpand(p => (p === id ? null : id)), []);
+
+  // Empty state
   if (!plan) {
     return (
-      <div style={{
-        minHeight: '100vh',
-        background: '#000',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        flexDirection: 'column',
-        gap: '12px',
-        fontFamily: "'Syne', sans-serif",
-      }}>
-        <div style={{ fontSize: '48px', fontWeight: 900, color: '#C8F135', letterSpacing: '-2px' }}>NO PLAN</div>
-        <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: '13px' }}>Generate a workout first.</p>
+      <div className="min-h-screen bg-[#080808] flex flex-col items-center justify-center gap-4 text-center p-6">
+        <div className="font-['Bebas_Neue'] text-8xl tracking-wide text-[#D4F53C] leading-tight">NO PLAN</div>
+        <p className="text-sm text-white/30">Generate a workout to get started.</p>
         <button
           onClick={() => navigate('/workout')}
-          style={{
-            background: '#C8F135',
-            color: '#000',
-            border: 'none',
-            borderRadius: '100px',
-            padding: '10px 24px',
-            fontWeight: 800,
-            fontSize: '12px',
-            cursor: 'pointer',
-            letterSpacing: '1px',
-            textTransform: 'uppercase',
-            fontFamily: "'Syne', sans-serif",
-          }}
+          className="h-11 px-7 rounded-xl bg-[#D4F53C] text-black font-['DM_Sans'] font-bold text-xs uppercase tracking-wide shadow-[0_0_24px_rgba(212,245,60,0.22)] hover:shadow-[0_0_36px_rgba(212,245,60,0.32)] hover:-translate-y-px active:scale-97 transition"
         >
-          Generate Workout
+          Generate workout
         </button>
       </div>
     );
   }
 
-  const diff = DIFF_CONFIG[plan.difficulty] || DIFF_CONFIG.Intermediate;
-  const uniqueMuscles = Array.from(new Set(plan.exercises.map(e => e.muscle_group)));
+  const diff = DIFF_CFG[plan.difficulty] ?? DIFF_CFG.Intermediate;
+  const intensityPct = INTENSITY_PCT[plan.hero_stats?.intensity ?? 'Moderate'];
+  const uniqueMuscles = [...new Set(plan.exercises.map(e => e.muscle_group))];
 
   return (
     <>
+      {/* Minimal keyframes for fade-up animation – only for UX, no layout CSS */}
       <style>{`
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        html { scroll-behavior: smooth; }
-        body { background: #000; overscroll-behavior: none; }
-
-        @keyframes slideDown {
-          from { opacity: 0; transform: translateY(-8px); }
-          to   { opacity: 1; transform: translateY(0); }
-        }
         @keyframes fadeUp {
-          from { opacity: 0; transform: translateY(16px); }
-          to   { opacity: 1; transform: translateY(0); }
+          from { opacity: 0; transform: translateY(20px); }
+          to { opacity: 1; transform: translateY(0); }
         }
-        @keyframes shimmer {
-          0%   { background-position: -200% center; }
-          100% { background-position: 200% center; }
-        }
-
-        .fade-up { animation: fadeUp 0.5s cubic-bezier(0.4,0,0.2,1) both; }
-        .fade-up-1 { animation-delay: 0.05s; }
-        .fade-up-2 { animation-delay: 0.1s; }
-        .fade-up-3 { animation-delay: 0.15s; }
-        .fade-up-4 { animation-delay: 0.2s; }
-        .fade-up-5 { animation-delay: 0.25s; }
-
-        .tap-scale:active { transform: scale(0.97); }
+        .animate-fade-up { animation: fadeUp 0.55s cubic-bezier(0.22,1,0.36,1) forwards; }
+        .anim-delay-00 { animation-delay: 0.00s; }
+        .anim-delay-07 { animation-delay: 0.07s; }
+        .anim-delay-14 { animation-delay: 0.14s; }
+        .anim-delay-21 { animation-delay: 0.21s; }
+        .anim-delay-28 { animation-delay: 0.28s; }
+        .anim-delay-35 { animation-delay: 0.35s; }
+        .anim-delay-42 { animation-delay: 0.42s; }
       `}</style>
 
-      <div style={{ minHeight: '100vh', background: '#000', color: '#fff', fontFamily: "'Syne', sans-serif" }}>
+      <div className="min-h-screen bg-[#080808] text-white font-['DM_Sans']">
+        {/* Spacer for fixed navbar (adjust if your global navbar height differs) */}
+        <div className="pt-[120px]" />
 
-        {/* ── Sticky Header ── */}
-        <header style={{
-          position: 'sticky',
-          top: 0,
-          zIndex: 50,
-          background: headerScrolled ? 'rgba(0,0,0,0.85)' : 'transparent',
-          backdropFilter: headerScrolled ? 'blur(16px)' : 'none',
-          borderBottom: headerScrolled ? '1px solid rgba(255,255,255,0.07)' : '1px solid transparent',
-          padding: '12px 16px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          transition: 'all 0.3s ease',
-        }}>
-          <button
-            onClick={() => navigate(-1)}
-            className="tap-scale"
-            style={{
-              width: '36px',
-              height: '36px',
-              borderRadius: '10px',
-              background: 'rgba(255,255,255,0.06)',
-              border: '1px solid rgba(255,255,255,0.1)',
-              color: '#fff',
-              fontSize: '16px',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              transition: 'transform 0.15s ease',
-            }}
-          >
-            ←
-          </button>
-
-          <div style={{ textAlign: 'center' }}>
-            <div style={{
-              fontSize: '20px',
-              fontWeight: 900,
-              color: '#C8F135',
-              letterSpacing: '-0.5px',
-              lineHeight: 1,
-            }}>
-              FORGE
-            </div>
-            <div style={{
-              fontSize: '8px',
-              fontFamily: "'DM Mono', monospace",
-              color: 'rgba(255,255,255,0.25)',
-              letterSpacing: '2px',
-              textTransform: 'uppercase',
-              marginTop: '1px',
-            }}>
-              {plan.workout_style}
-            </div>
-          </div>
-
-          <button
-            onClick={handleShare}
-            className="tap-scale"
-            style={{
-              background: copied ? '#C8F135' : 'rgba(255,255,255,0.06)',
-              border: `1px solid ${copied ? '#C8F135' : 'rgba(255,255,255,0.1)'}`,
-              color: copied ? '#000' : 'rgba(255,255,255,0.7)',
-              borderRadius: '100px',
-              padding: '6px 14px',
-              fontSize: '11px',
-              fontWeight: 700,
-              cursor: 'pointer',
-              letterSpacing: '0.5px',
-              transition: 'all 0.2s ease',
-              fontFamily: "'Syne', sans-serif",
-            }}
-          >
-            {copied ? '✓ Copied' : 'Share'}
-          </button>
-        </header>
-
-        <main style={{ maxWidth: '480px', margin: '0 auto', padding: '0 16px 120px' }}>
-
-          {/* ── HERO ── */}
-          <div className="fade-up" style={{ padding: '24px 0 28px' }}>
-            {/* Difficulty + split */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
-              <span style={{
-                fontSize: '9px',
-                fontFamily: "'DM Mono', monospace",
-                letterSpacing: '1.5px',
-                padding: '3px 10px',
-                borderRadius: '100px',
-                color: diff.color,
-                background: diff.bg,
-                border: `1px solid ${diff.color}30`,
-                textTransform: 'uppercase',
-              }}>
-                {diff.label}
-              </span>
-              <span style={{
-                fontSize: '9px',
-                fontFamily: "'DM Mono', monospace",
-                color: 'rgba(255,255,255,0.25)',
-                textTransform: 'uppercase',
-                letterSpacing: '1px',
-              }}>
-                {plan.hero_stats?.training_split}
-              </span>
+        {/* Main grid: sidebar + content */}
+        <div className="max-w-[1600px] mx-auto lg:grid lg:grid-cols-[380px_1fr] 2xl:grid-cols-[460px_1fr]">
+          {/* SIDEBAR (sticky on desktop) */}
+          <aside className="px-4 pb-32 pt-5 sm:px-6 md:px-8 lg:sticky lg:top-[120px] lg:max-h-[calc(100vh-120px)] lg:overflow-y-auto lg:border-r lg:border-white/5 lg:pb-10 animate-fade-up anim-delay-00">
+            {/* Diff + split */}
+            <div className="flex items-center gap-2.5 mb-5">
+              <div
+                className="inline-flex items-center gap-1.5 h-6 px-3 rounded-full font-mono text-[9px] font-semibold tracking-[0.1em] uppercase border"
+                style={{ color: diff.color, background: diff.bg, borderColor: diff.border }}
+              >
+                <div className="flex gap-1">
+                  {[1, 2, 3].map(n => (
+                    <div
+                      key={n}
+                      className="w-1 h-1 rounded-full"
+                      style={{ background: n <= diff.dots ? diff.color : 'rgba(255,255,255,0.12)' }}
+                    />
+                  ))}
+                </div>
+                {plan.difficulty}
+              </div>
+              {plan.hero_stats?.training_split && (
+                <span className="font-mono text-[9px] text-white/30 tracking-[0.1em] uppercase">
+                  {plan.hero_stats.training_split}
+                </span>
+              )}
             </div>
 
-            {/* Title */}
-            <h1 style={{
-              fontSize: 'clamp(28px, 8vw, 36px)',
-              fontWeight: 900,
-              letterSpacing: '-1.5px',
-              lineHeight: 1.05,
-              color: '#fff',
-              marginBottom: '8px',
-            }}>
+            <h1 className="font-['Bebas_Neue'] text-[clamp(44px,7vw,72px)] leading-[0.93] tracking-wide text-white mb-3">
               {plan.title}
             </h1>
-            <p style={{
-              fontSize: '13px',
-              color: 'rgba(255,255,255,0.4)',
-              lineHeight: '1.5',
-              marginBottom: '20px',
-              fontWeight: 400,
-            }}>
-              {plan.subtitle}
-            </p>
+            <p className="text-sm leading-relaxed text-white/55 mb-6 max-w-md">{plan.subtitle}</p>
 
-            {/* 3 pill stats */}
-            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '20px' }}>
-              {[
-                { icon: '⏱', val: `${plan.estimated_duration} min` },
-                { icon: '🔥', val: `~${plan.calories_estimate} cal` },
-                { icon: '🎯', val: plan.focus?.primary },
-              ].map((p) => (
-                <div key={p.val} style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '5px',
-                  background: 'rgba(255,255,255,0.05)',
-                  border: '1px solid rgba(255,255,255,0.08)',
-                  borderRadius: '100px',
-                  padding: '5px 12px',
-                  fontSize: '11px',
-                  color: 'rgba(255,255,255,0.65)',
-                  fontFamily: "'DM Mono', monospace",
-                }}>
-                  <span style={{ fontSize: '12px' }}>{p.icon}</span>
-                  {p.val}
-                </div>
-              ))}
+            {/* Quick pills */}
+            <div className="flex flex-wrap gap-1.5 mb-6">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-black/10 border border-white/5 font-mono text-[11px] text-white/55">
+                <span>⏱</span> {plan.estimated_duration} min
+              </div>
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-black/10 border border-white/5 font-mono text-[11px] text-white/55">
+                <span>🔥</span> ~{plan.calories_estimate} kcal
+              </div>
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-black/10 border border-white/5 font-mono text-[11px] text-white/55">
+                <span>🎯</span> {plan.focus?.primary}
+              </div>
             </div>
 
-            {/* Stats grid – 2×2 on mobile */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px' }}>
+            {/* Metric grid */}
+            <div className="grid grid-cols-2 gap-2 mb-5 sm:grid-cols-4">
               {[
-                { label: 'DURATION',  value: `${plan.estimated_duration}m`, accent: '#C8F135' },
-                { label: 'CALORIES',  value: `~${plan.calories_estimate}`, accent: '#FF7C47' },
-                { label: 'EXERCISES', value: plan.hero_stats?.total_exercises, accent: '#47C8FF' },
-                { label: 'TOTAL SETS',value: plan.hero_stats?.total_sets, accent: '#B47CFF' },
-              ].map((s) => (
-                <div key={s.label} style={{
-                  background: 'rgba(255,255,255,0.03)',
-                  border: '1px solid rgba(255,255,255,0.07)',
-                  borderRadius: '14px',
-                  padding: '14px 16px',
-                  position: 'relative',
-                  overflow: 'hidden',
-                }}>
-                  <div style={{
-                    position: 'absolute',
-                    top: 0, left: 0,
-                    width: '3px',
-                    height: '100%',
-                    background: s.accent,
-                    borderRadius: '0 2px 2px 0',
-                  }} />
-                  <div style={{
-                    fontSize: '8px',
-                    fontFamily: "'DM Mono', monospace",
-                    color: 'rgba(255,255,255,0.3)',
-                    letterSpacing: '1.5px',
-                    marginBottom: '6px',
-                  }}>
-                    {s.label}
+                { lbl: 'Duration', val: plan.estimated_duration, unit: 'min', color: '#D4F53C' },
+                { lbl: 'Calories', val: plan.calories_estimate, unit: 'kcal', color: '#FB923C' },
+                { lbl: 'Exercises', val: plan.hero_stats?.total_exercises ?? 0, unit: '', color: '#38BDF8' },
+                { lbl: 'Total sets', val: plan.hero_stats?.total_sets ?? 0, unit: '', color: '#A78BFA' },
+              ].map(s => (
+                <div key={s.lbl} className="relative bg-black/10 border border-white/5 rounded-2xl p-4 overflow-hidden group hover:bg-white/5 transition">
+                  <div className="absolute top-0 left-0 right-0 h-0.5" style={{ background: s.color }} />
+                  <div className="font-mono text-[9px] text-white/30 uppercase tracking-[0.12em] mt-1 mb-2">
+                    {s.lbl}
                   </div>
-                  <div style={{
-                    fontSize: '26px',
-                    fontWeight: 900,
-                    color: s.accent,
-                    letterSpacing: '-1px',
-                    lineHeight: 1,
-                  }}>
-                    {s.value}
+                  <div className="font-['Bebas_Neue'] text-4xl leading-none" style={{ color: s.color }}>
+                    {s.val}
+                    {s.unit && <span className="text-lg opacity-60">{s.unit}</span>}
                   </div>
                 </div>
               ))}
             </div>
-          </div>
 
-          {/* ── WARMUP ── */}
-          {plan.warmup?.length > 0 && (
-            <div className="fade-up fade-up-1" style={{ marginBottom: '28px' }}>
-              <Section icon="🔥" title="Warm-up" />
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                {plan.warmup.map((item, i) => (
-                  <SimpleRow key={i} name={item.name} duration={item.duration} />
-                ))}
+            {/* Intensity */}
+            <div className="mb-5">
+              <div className="flex justify-between items-center mb-2">
+                <span className="font-mono text-[9px] text-white/30 uppercase tracking-wider">Intensity</span>
+                <span className="font-mono text-[10px] text-[#D4F53C] font-semibold">
+                  {plan.hero_stats?.intensity ?? 'Moderate'}
+                </span>
+              </div>
+              <div className="h-1 bg-white/10 rounded-full overflow-hidden">
+                <div className="h-full bg-[#D4F53C] rounded-full" style={{ width: `${intensityPct}%` }} />
               </div>
             </div>
-          )}
 
-          {/* ── EXERCISES ── */}
-          <div className="fade-up fade-up-2" style={{ marginBottom: '28px' }}>
-            <Section icon="💪" title={`Exercises · ${plan.exercises.length}`} />
-
-            {/* Muscle chips row */}
-            <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '14px' }}>
-              {uniqueMuscles.map((m) => {
-                const c = getMuscleColor(m);
-                return (
-                  <span key={m} style={{
-                    fontSize: '9px',
-                    fontFamily: "'DM Mono', monospace",
-                    color: c,
-                    background: c + '12',
-                    border: `1px solid ${c}30`,
-                    borderRadius: '100px',
-                    padding: '2px 8px',
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.5px',
-                  }}>
-                    {m}
-                  </span>
-                );
-              })}
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              {plan.exercises.map((ex, idx) => (
-                <ExerciseCard
-                  key={ex.id}
-                  exercise={ex}
-                  index={idx}
-                  expanded={expandedId === ex.id}
-                  onToggle={() => setExpandedId(expandedId === ex.id ? null : ex.id)}
-                />
-              ))}
-            </div>
-          </div>
-
-          {/* ── FINISHER ── */}
-          {plan.finisher && (
-            <div className="fade-up fade-up-3" style={{ marginBottom: '28px' }}>
-              <Section icon="⚡" title="Finisher" />
-              <div style={{
-                background: 'linear-gradient(135deg, rgba(200,241,53,0.08) 0%, rgba(200,241,53,0.02) 100%)',
-                border: '1px solid rgba(200,241,53,0.2)',
-                borderRadius: '16px',
-                padding: '16px',
-                position: 'relative',
-                overflow: 'hidden',
-              }}>
-                <div style={{
-                  position: 'absolute',
-                  top: '-20px', right: '-20px',
-                  fontSize: '64px',
-                  opacity: 0.06,
-                  userSelect: 'none',
-                }}>⚡</div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
-                  <span style={{ fontSize: '15px', fontWeight: 800, color: '#fff', letterSpacing: '-0.3px' }}>
-                    {plan.finisher.name}
-                  </span>
-                  <span style={{
-                    fontSize: '10px',
-                    fontFamily: "'DM Mono', monospace",
-                    color: '#C8F135',
-                    background: 'rgba(200,241,53,0.1)',
-                    padding: '2px 8px',
-                    borderRadius: '6px',
-                  }}>
-                    {plan.finisher.duration}
-                  </span>
+            {/* Focus */}
+            {plan.focus && (
+              <div className="mb-5">
+                <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[rgba(212,245,60,0.1)] border border-[rgba(212,245,60,0.2)] text-xs font-semibold text-[#D4F53C] mb-2">
+                  🎯 {plan.focus.primary}
                 </div>
-                <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)', lineHeight: '1.5' }}>
-                  {plan.finisher.description}
-                </p>
+                {plan.focus.secondary?.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5">
+                    {plan.focus.secondary.map(s => (
+                      <span key={s} className="text-[11px] text-white/30 bg-white/5 border border-white/5 rounded-md px-2 py-1">
+                        {s}
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
-            </div>
-          )}
+            )}
 
-          {/* ── COOLDOWN ── */}
-          {plan.cooldown?.length > 0 && (
-            <div className="fade-up fade-up-4" style={{ marginBottom: '28px' }}>
-              <Section icon="🧘" title="Cool-down" />
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                {plan.cooldown.map((item, i) => (
-                  <SimpleRow key={i} name={item.name} duration={item.duration} />
+            <div className="h-px bg-white/5 my-5" />
+
+            {/* Equipment (desktop) */}
+            {plan.equipment?.length > 0 && (
+              <>
+                <SHead icon="🏋️" title="Equipment" />
+                <div className="flex flex-wrap gap-1.5 mb-5">
+                  {plan.equipment.map(eq => (
+                    <span key={eq} className="font-mono text-[10px] font-medium text-white/55 bg-black/10 border border-white/5 rounded-lg px-3 py-1 uppercase tracking-wide">
+                      {eq}
+                    </span>
+                  ))}
+                </div>
+                <div className="h-px bg-white/5 my-5" />
+              </>
+            )}
+
+            {/* Desktop actions */}
+            <div className="hidden lg:flex gap-2 mt-2">
+              <button
+                className="flex-1 h-11 rounded-xl bg-white/5 border border-white/10 text-white/55 font-semibold text-xs flex items-center justify-center gap-1.5 hover:bg-white/10 hover:text-white transition"
+                onClick={() => navigate(-1)}
+              >
+                <EditIcon /> Edit
+              </button>
+              <button
+                className="flex-[2] h-11 rounded-xl bg-[#D4F53C] text-black font-bold text-xs flex items-center justify-center gap-1.5 shadow-[0_0_28px_rgba(212,245,60,0.18)] hover:shadow-[0_0_40px_rgba(212,245,60,0.3)] hover:-translate-y-px transition"
+                onClick={() => navigate('/workout')}
+              >
+                <PlusIcon /> New workout
+              </button>
+            </div>
+          </aside>
+
+          {/* MAIN CONTENT */}
+          <main className="px-4 pt-2 pb-20 sm:px-6 md:px-8 lg:pt-6 lg:pb-32">
+            {/* Warmup */}
+            {plan.warmup?.length > 0 && (
+              <div className="mb-8 animate-fade-up anim-delay-07">
+                <SHead icon="🔥" title="Warm-up" />
+                <div className="space-y-1.5">
+                  {plan.warmup.map((w, i) => <SRow key={i} name={w.name} duration={w.duration} />)}
+                </div>
+              </div>
+            )}
+
+            {/* Exercises */}
+            <div className="mb-8 animate-fade-up anim-delay-14">
+              <SHead icon="💪" title={`Exercises · ${plan.exercises.length}`} />
+              <div className="flex flex-wrap gap-1.5 mb-3">
+                {uniqueMuscles.map(m => {
+                  const c = getMuscle(m);
+                  return (
+                    <span
+                      key={m}
+                      className="font-mono text-[9px] font-semibold uppercase px-2 py-1 rounded-md border"
+                      style={{ color: c.primary, background: c.bg, borderColor: c.border }}
+                    >
+                      {m}
+                    </span>
+                  );
+                })}
+              </div>
+              <div className="space-y-1.5 xl:grid xl:grid-cols-2 xl:gap-2 xl:space-y-0">
+                {plan.exercises.map((ex, idx) => (
+                  <ExCard
+                    key={ex.id}
+                    exercise={ex}
+                    index={idx}
+                    expanded={expandedId === ex.id}
+                    onToggle={() => toggle(ex.id)}
+                  />
                 ))}
               </div>
             </div>
-          )}
 
-          {/* ── COACH SUMMARY ── */}
-          {plan.summary && (
-            <div className="fade-up fade-up-5" style={{ marginBottom: '28px' }}>
-              <Section icon="📋" title="Coach Summary" />
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                {[
-                  { label: 'MAIN BENEFIT', text: plan.summary.main_benefit, color: '#C8F135', icon: '✦' },
-                  { label: 'RECOVERY',     text: plan.summary.recovery_tip, color: '#47C8FF', icon: '↻' },
-                  { label: 'NEXT FOCUS',   text: plan.summary.next_focus,   color: '#B47CFF', icon: '→' },
-                ].map((s) => (
-                  <div key={s.label} style={{
-                    display: 'flex',
-                    gap: '12px',
-                    background: 'rgba(255,255,255,0.03)',
-                    border: '1px solid rgba(255,255,255,0.07)',
-                    borderRadius: '14px',
-                    padding: '14px',
-                    alignItems: 'flex-start',
-                  }}>
-                    <div style={{
-                      width: '28px',
-                      height: '28px',
-                      borderRadius: '8px',
-                      background: s.color + '15',
-                      border: `1px solid ${s.color}30`,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      flexShrink: 0,
-                      fontSize: '13px',
-                      color: s.color,
-                      fontWeight: 700,
-                    }}>
-                      {s.icon}
-                    </div>
-                    <div>
-                      <div style={{
-                        fontSize: '8px',
-                        fontFamily: "'DM Mono', monospace",
-                        color: s.color,
-                        letterSpacing: '1.5px',
-                        marginBottom: '4px',
-                      }}>
-                        {s.label}
+            {/* Finisher */}
+            {plan.finisher && (
+              <div className="mb-8 animate-fade-up anim-delay-21">
+                <SHead icon="⚡" title="Finisher" />
+                <div className="relative bg-black/10 border border-[rgba(212,245,60,0.2)] rounded-2xl p-5 overflow-hidden">
+                  <div className="absolute right-0 top-0 text-8xl font-['Bebas_Neue'] text-[rgba(212,245,60,0.04)] pointer-events-none select-none">
+                    ⚡
+                  </div>
+                  <div className="flex justify-between items-start gap-3 mb-2">
+                    <span className="text-lg font-bold text-white tracking-tight">{plan.finisher.name}</span>
+                    <span className="shrink-0 bg-[rgba(212,245,60,0.1)] border border-[rgba(212,245,60,0.2)] rounded-md px-3 py-1 font-mono text-[10px] text-[#D4F53C] font-semibold">
+                      {plan.finisher.duration}
+                    </span>
+                  </div>
+                  <p className="text-sm text-white/55 leading-relaxed">{plan.finisher.description}</p>
+                </div>
+              </div>
+            )}
+
+            {/* Cooldown */}
+            {plan.cooldown?.length > 0 && (
+              <div className="mb-8 animate-fade-up anim-delay-28">
+                <SHead icon="🧘" title="Cool-down" />
+                <div className="space-y-1.5">
+                  {plan.cooldown.map((c, i) => <SRow key={i} name={c.name} duration={c.duration} />)}
+                </div>
+              </div>
+            )}
+
+            {/* Summary */}
+            {plan.summary && (
+              <div className="mb-8 animate-fade-up anim-delay-35">
+                <SHead icon="📋" title="Coach summary" />
+                <div className="space-y-2">
+                  {[
+                    { lbl: 'Main benefit', txt: plan.summary.main_benefit, color: '#D4F53C', bg: 'rgba(212,245,60,0.08)', ic: '✦' },
+                    { lbl: 'Recovery tip', txt: plan.summary.recovery_tip, color: '#38BDF8', bg: 'rgba(56,189,248,0.08)', ic: '↻' },
+                    { lbl: 'Next focus', txt: plan.summary.next_focus, color: '#A78BFA', bg: 'rgba(167,139,250,0.08)', ic: '→' },
+                  ].map(s => (
+                    <div
+                      key={s.lbl}
+                      className="flex gap-3 items-start bg-black/10 border border-white/5 rounded-2xl p-4 hover:border-white/10 transition"
+                    >
+                      <div
+                        className="w-8 h-8 rounded-lg shrink-0 flex items-center justify-center text-sm font-bold border"
+                        style={{ color: s.color, background: s.bg, borderColor: `${s.color}30` }}
+                      >
+                        {s.ic}
                       </div>
-                      <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.65)', lineHeight: '1.5' }}>
-                        {s.text}
+                      <div>
+                        <div className="font-mono text-[8px] font-semibold uppercase tracking-wider mb-1" style={{ color: s.color }}>
+                          {s.lbl}
+                        </div>
+                        <div className="text-sm text-white/55 leading-relaxed">{s.txt}</div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {/* ── EQUIPMENT ── */}
-          {plan.equipment?.length > 0 && (
-            <div style={{ marginBottom: '8px' }}>
-              <Section icon="🏋️" title="Equipment" />
-              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                {plan.equipment.map((eq) => (
-                  <span key={eq} style={{
-                    fontSize: '10px',
-                    fontFamily: "'DM Mono', monospace",
-                    color: 'rgba(255,255,255,0.5)',
-                    background: 'rgba(255,255,255,0.05)',
-                    border: '1px solid rgba(255,255,255,0.08)',
-                    borderRadius: '8px',
-                    padding: '4px 10px',
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.5px',
-                  }}>
-                    {eq}
-                  </span>
-                ))}
+            {/* Equipment (mobile only) */}
+            {plan.equipment?.length > 0 && (
+              <div className="block lg:hidden animate-fade-up anim-delay-42">
+                <SHead icon="🏋️" title="Equipment" />
+                <div className="flex flex-wrap gap-1.5">
+                  {plan.equipment.map(eq => (
+                    <span key={eq} className="font-mono text-[10px] font-medium text-white/55 bg-black/10 border border-white/5 rounded-lg px-3 py-1 uppercase tracking-wide">
+                      {eq}
+                    </span>
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
+            )}
+          </main>
+        </div>
 
-        </main>
-
-        {/* ── Sticky Footer ── */}
-        <div style={{
-          position: 'fixed',
-          bottom: 0, left: 0, right: 0,
-          padding: '12px 16px',
-          background: 'linear-gradient(to top, rgba(0,0,0,1) 60%, transparent)',
-          paddingBottom: 'max(16px, env(safe-area-inset-bottom))',
-        }}>
-          <div style={{ maxWidth: '480px', margin: '0 auto', display: 'flex', gap: '10px' }}>
+        {/* MOBILE FOOTER (fixed at bottom) */}
+        <div className="lg:hidden fixed bottom-0 left-0 right-0 z-30 p-3 bg-gradient-to-t from-[#080808] via-[#080808] to-transparent pt-6 pb-5">
+          <div className="max-w-md mx-auto flex gap-2">
             <button
+              className="flex-1 h-12 rounded-xl bg-white/5 border border-white/10 text-white/55 font-semibold text-xs hover:bg-white/10 hover:text-white transition"
               onClick={() => navigate(-1)}
-              className="tap-scale"
-              style={{
-                flex: 1,
-                background: 'rgba(255,255,255,0.07)',
-                border: '1px solid rgba(255,255,255,0.12)',
-                borderRadius: '14px',
-                padding: '14px',
-                color: 'rgba(255,255,255,0.75)',
-                fontSize: '13px',
-                fontWeight: 700,
-                cursor: 'pointer',
-                fontFamily: "'Syne', sans-serif",
-                letterSpacing: '0.3px',
-                transition: 'transform 0.15s ease',
-              }}
             >
               ← Edit
             </button>
             <button
+              className="flex-[2] h-12 rounded-xl bg-[#D4F53C] text-black font-bold text-xs uppercase tracking-wide shadow-[0_0_28px_rgba(212,245,60,0.2)] hover:shadow-[0_0_40px_rgba(212,245,60,0.32)] hover:-translate-y-px transition"
               onClick={() => navigate('/workout')}
-              className="tap-scale"
-              style={{
-                flex: 2,
-                background: '#C8F135',
-                border: 'none',
-                borderRadius: '14px',
-                padding: '14px',
-                color: '#000',
-                fontSize: '13px',
-                fontWeight: 900,
-                cursor: 'pointer',
-                letterSpacing: '1px',
-                textTransform: 'uppercase',
-                fontFamily: "'Syne', sans-serif",
-                transition: 'transform 0.15s ease',
-                boxShadow: '0 4px 20px rgba(200,241,53,0.3)',
-              }}
             >
-              + New Workout
+              + New workout
+            </button>
+            <button
+              className={`h-12 px-4 rounded-full bg-white/5 border border-white/10 text-white/55 font-semibold text-xs flex items-center gap-1.5 transition ${
+                copied ? 'bg-[#D4F53C] text-black border-[#D4F53C]' : ''
+              }`}
+              onClick={share}
+            >
+              {copied ? '✓ Copied' : <><ShareIcon />Share</>}
             </button>
           </div>
         </div>
-
       </div>
     </>
   );
