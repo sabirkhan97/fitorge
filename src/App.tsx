@@ -11,6 +11,7 @@ import About from './pages/about/About';
 import Programs from './pages/programs/Programs';
 import Muscles from './pages/Muscles/Muscles';
 import Workouts from './pages/workouts/Workouts';
+import Navbar from './pages/navbar/Navbar';
 
 export default function App() {
   const announcements = [
@@ -30,6 +31,7 @@ export default function App() {
         textColor="#000"
         dismissible={true}
       />
+      <Navbar />
 
       <Routes>
         <Route path="/" element={<Home />} />

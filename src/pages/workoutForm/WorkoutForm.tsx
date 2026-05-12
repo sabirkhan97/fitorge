@@ -9,7 +9,7 @@ const WorkoutForm = () => {
         return <div>Loading...</div>;
     }
 
-    return session ? <GuestView /> : <GuestView />;
+    return session ? <UserView /> : <GuestView />;
 };
 
 export default WorkoutForm;

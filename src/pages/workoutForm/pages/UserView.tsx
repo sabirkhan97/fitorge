@@ -1,10 +1,1308 @@
-const UserView = () => {
-  return (
-    <div className='bg-black text-white p-8 rounded-lg shadow-md text-center max-w-2xl mx-auto mt-10  border-4 border-green-500 animate-pulse  '>
-      coming soon for logged in users! (will include saving workouts, progress tracking, and more personalized plans)
-      
-    </div>
-  );
+'use client';
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
+import api, { type GenerateWorkoutBody } from '../../../services/api';
+import LoadingModal from '../../../components/LoadingModal';
+import { ErrorCard } from '../../../components/ErrorCard';
+import { useAuthContext } from '../../../context/AuthContext';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Constants
+// ─────────────────────────────────────────────────────────────────────────────
+const GENDERS = [
+  { value: 'Male', label: 'Male', icon: '♂' },
+  { value: 'Female', label: 'Female', icon: '♀' },
+  { value: 'Other', label: 'Other', icon: '⊕' },
+];
+const DURATIONS = ['20', '30', '45', '60', '75', '90'];
+const DAYS_PER_WEEK = ['2', '3', '4', '5', '6', '7'];
+const EQUIPMENT_OPTS = ['Dumbbells', 'Barbell', 'Resistance Bands', 'Pull-up Bar', 'Kettlebell', 'Jump Rope', 'Bench', 'Bodyweight Only'];
+const INJURY_PRESETS = ['None', 'Lower Back', 'Knee', 'Shoulder', 'Wrist', 'Hip', 'Ankle'];
+const GOALS = [
+  { value: 'muscle_gain', label: 'Muscle Gain', icon: '◈' },
+  { value: 'fat_loss', label: 'Fat Loss', icon: '◎' },
+  { value: 'strength', label: 'Strength', icon: '◆' },
+  { value: 'endurance', label: 'Endurance', icon: '◉' },
+  { value: 'recomp', label: 'Recomp', icon: '◐' },
+  { value: 'flexibility', label: 'Flexibility', icon: '◑' },
+];
+const EXPERIENCE = [
+  { value: 'beginner', label: 'Beginner', sub: '< 6 months' },
+  { value: 'intermediate', label: 'Intermediate', sub: '6 mo – 2 yr' },
+  { value: 'advanced', label: 'Advanced', sub: '2+ years' },
+];
+const FOCUS_OPTS = [
+  { value: 'full_body', label: 'Full Body' }, { value: 'upper_body', label: 'Upper Body' },
+  { value: 'lower_body', label: 'Lower Body' }, { value: 'push', label: 'Push' },
+  { value: 'pull', label: 'Pull' }, { value: 'legs', label: 'Legs' },
+  { value: 'chest', label: 'Chest' }, { value: 'back', label: 'Back' },
+  { value: 'shoulders', label: 'Shoulders' }, { value: 'arms', label: 'Arms' },
+  { value: 'core', label: 'Core' }, { value: 'glutes', label: 'Glutes' },
+];
+const CARDIO_OPTS = [
+  { value: 'none', label: 'None', sub: 'Skip it' },
+  { value: 'light', label: 'Light', sub: 'Easy pace' },
+  { value: 'medium', label: 'Medium', sub: 'Moderate' },
+  { value: 'heavy', label: 'Intense', sub: 'All out' },
+];
+const LOCATIONS = [
+  { value: 'gym', label: 'Gym', sub: 'Full equipment' },
+  { value: 'home', label: 'Home', sub: 'Limited gear' },
+  { value: 'park', label: 'Outdoors', sub: 'Bodyweight' },
+];
+const WEAK_MUSCLES = [
+  { value: 'lower_chest', label: 'Lower Chest' }, { value: 'upper_chest', label: 'Upper Chest' },
+  { value: 'inner_chest', label: 'Inner Chest' }, { value: 'rear_delts', label: 'Rear Delts' },
+  { value: 'side_delts', label: 'Side Delts' }, { value: 'rounded_shoulders', label: 'Round Shoulders' },
+  { value: 'upper_back', label: 'Upper Back' }, { value: 'lats', label: 'Lats Width' },
+  { value: 'hamstrings', label: 'Hamstrings' }, { value: 'glutes', label: 'Glutes' },
+  { value: 'calves', label: 'Calves' }, { value: 'bicep_peak', label: 'Bicep Peak' },
+  { value: 'tricep_mass', label: 'Tricep Mass' }, { value: 'lower_abs', label: 'Lower Abs' },
+  { value: 'forearms', label: 'Forearms' },
+];
+const INTENSITY_OPTS = [
+  { value: 'pump', label: 'Pump', sub: 'High reps, short rest' },
+  { value: 'strength', label: 'Strength', sub: 'Heavy, low reps' },
+  { value: 'circuit', label: 'Circuit', sub: 'Minimal rest' },
+  { value: 'balanced', label: 'Balanced', sub: 'Mix of both' },
+  { value: 'explosive', label: 'Explosive', sub: 'Power & speed' },
+];
+const RECOVERY_OPTS = [
+  { value: 'fresh', label: 'Fresh', sub: 'Ready to crush it' },
+  { value: 'normal', label: 'Normal', sub: 'Feeling good' },
+  { value: 'tired', label: 'Tired', sub: 'Low energy' },
+  { value: 'very_tired', label: 'Very Tired', sub: 'Light session' },
+];
+
+const GOAL_SMART_DEFAULTS: Record<string, Partial<FormData>> = {
+  fat_loss: { cardio: 'medium', intensity_style: 'circuit', duration: '45' },
+  muscle_gain: { cardio: 'light', intensity_style: 'pump', duration: '60' },
+  strength: { cardio: 'none', intensity_style: 'strength', duration: '60' },
+  endurance: { cardio: 'heavy', intensity_style: 'circuit', duration: '45' },
+  recomp: { cardio: 'medium', intensity_style: 'balanced', duration: '45' },
+  flexibility: { cardio: 'light', intensity_style: 'balanced', duration: '30' },
 };
 
-export default UserView;
+const SELECTION_HINTS: Record<string, string> = {
+  muscle_gain: "Great for building size — we'll increase volume & rest periods",
+  fat_loss: 'Adds cardio circuits & higher rep ranges to torch calories',
+  strength: 'Prioritizes heavy compound lifts with longer recovery',
+  endurance: 'Focuses on sustained effort, minimal rest, progressive overload',
+  recomp: 'Balanced approach — builds muscle while shedding fat',
+  flexibility: 'Adds mobility work and active stretching to your session',
+  pump: 'Increases workout intensity with higher reps',
+  circuit: 'Minimal rest, keeps heart rate elevated',
+  balanced: 'Mix of hypertrophy and strength work',
+  explosive: 'Power-based movements for athletic performance',
+};
+
+const STEPS = [
+  { id: 'body', title: 'Your Body', sub: 'Stats & schedule', index: '01', time: '~30 sec' },
+  { id: 'goals', title: 'Your Goals', sub: 'What drives you', index: '02', time: '~20 sec' },
+  { id: 'session', title: 'Fine-Tune', sub: 'Location & session', index: '03', time: '~20 sec' },
+];
+
+const VALIDATION = {
+  age: { min: 10, max: 80, label: 'Age must be between 10 and 80' },
+  height: { min: 100, max: 250, label: 'Height must be between 100 and 250 cm' },
+  weight: { min: 30, max: 200, label: 'Weight must be between 30 and 200 kg' },
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Unit conversion helpers
+// ─────────────────────────────────────────────────────────────────────────────
+function ftInToCm(ft: string, inch: string): number {
+  const f = parseFloat(ft) || 0;
+  const i = parseFloat(inch) || 0;
+  return Math.round(f * 30.48 + i * 2.54);
+}
+function cmToFtIn(cm: number): { ft: string; inch: string } {
+  const totalInch = cm / 2.54;
+  const ft = Math.floor(totalInch / 12);
+  const inch = Math.round(totalInch % 12);
+  return { ft: String(ft), inch: String(inch) };
+}
+function lbsToKg(lbs: string): number {
+  return Math.round(parseFloat(lbs) * 0.453592);
+}
+function kgToLbs(kg: number): number {
+  return Math.round(kg / 0.453592);
+}
+
+const LS_DRAFT_KEY = 'fitforge_form_v2';
+const LS_DEFAULTS_KEY = 'fitforge_user_defaults';
+
+interface FormData {
+  age: string; gender: string; height: string; weight: string;
+  goal: string; experience: string; duration: string; focus: string;
+  injuries: string; cardio: string; location: string;
+  equipment: string[]; weak_muscles: string[];
+  intensity_style: string; recovery_level: string;
+  days_per_week: string; custom_note: string;
+  heightUnit: 'cm' | 'ft';
+  weightUnit: 'kg' | 'lbs';
+  heightFt: string;
+  heightIn: string;
+  weightLbs: string;
+}
+
+const DEFAULT_FORM: FormData = {
+  age: '', gender: '', height: '', weight: '',
+  goal: '', experience: '', duration: '45', focus: '',
+  injuries: 'None', cardio: 'none', location: 'gym',
+  equipment: [], weak_muscles: [],
+  intensity_style: 'balanced', recovery_level: 'normal',
+  days_per_week: '4', custom_note: '',
+  heightUnit: 'cm', weightUnit: 'kg',
+  heightFt: '', heightIn: '', weightLbs: '',
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Validation helpers
+// ─────────────────────────────────────────────────────────────────────────────
+function validateNumber(value: string, key: 'age' | 'height' | 'weight'): string | null {
+  if (!value) return null;
+  const n = Number(value);
+  if (isNaN(n)) return `${key.charAt(0).toUpperCase() + key.slice(1)} must be a number`;
+  const { min, max, label } = VALIDATION[key];
+  if (n < min || n > max) return label;
+  return null;
+}
+
+function getContextWarnings(form: FormData): string[] {
+  const warnings: string[] = [];
+  const age = parseInt(form.age, 10);
+  const weight = parseInt(form.weight, 10);
+  if (!isNaN(age) && age < 16 && form.intensity_style === 'strength')
+    warnings.push('Heavy strength training is not recommended under 16. Consider Balanced instead.');
+  if (!isNaN(age) && age < 14)
+    warnings.push('For users under 14, we recommend light, supervised exercise only.');
+  if (!isNaN(weight) && weight < 50 && form.goal === 'fat_loss')
+    warnings.push('Your weight is low — consider Muscle Gain or Recomp as a safer goal.');
+  return warnings;
+}
+
+function getSummaryParts(form: FormData): string[] {
+  const parts: string[] = [];
+  if (form.goal) parts.push(GOALS.find(g => g.value === form.goal)?.label ?? '');
+  if (form.days_per_week) parts.push(`${form.days_per_week}×/wk`);
+  if (form.location) parts.push(LOCATIONS.find(l => l.value === form.location)?.label ?? '');
+  if (form.focus) parts.push(FOCUS_OPTS.find(f => f.value === form.focus)?.label ?? '');
+  return parts.filter(Boolean);
+}
+
+function getWorkoutPreview(form: FormData) {
+  const splitType = (() => {
+    if (!form.focus) return '—';
+    if (form.focus === 'full_body') return 'Full Body';
+    if (['push', 'pull', 'legs'].includes(form.focus)) return 'PPL Split';
+    if (['upper_body', 'lower_body'].includes(form.focus)) return 'Upper/Lower';
+    return 'Isolation Split';
+  })();
+  const difficulty = (() => {
+    if (!form.experience) return '—';
+    return { beginner: 'Beginner', intermediate: 'Moderate', advanced: 'High Intensity' }[form.experience] ?? '—';
+  })();
+  const duration = form.duration ? `${form.duration} min` : '—';
+  return { splitType, difficulty, duration };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// UI Components
+// ─────────────────────────────────────────────────────────────────────────────
+function Label({ text, optional, hint }: { text: string; optional?: boolean; hint?: string }) {
+  return (
+    <div className="flex items-center gap-2 mb-2.5">
+      <span className="font-mono text-[10px] font-bold tracking-[0.16em] uppercase text-[#888]">{text}</span>
+      {optional && (
+        <span className="font-mono text-[9px] text-[#555] bg-[#242424] px-1.5 py-0.5 rounded tracking-[0.08em]">optional</span>
+      )}
+      {hint && <span className="text-[10px] text-[#888] italic font-sans">{hint}</span>}
+    </div>
+  );
+}
+
+function UnitToggle<T extends string>({
+  options,
+  value,
+  onChange,
+}: {
+  options: { value: T; label: string }[];
+  value: T;
+  onChange: (v: T) => void;
+}) {
+  return (
+    <div className="flex items-center gap-0.5 bg-[#1A1A1A] border border-[#2A2A2A] rounded-lg p-0.5">
+      {options.map(opt => (
+        <button
+          key={opt.value}
+          onClick={() => onChange(opt.value)}
+          className="relative px-3 py-1.5 rounded-md font-mono text-[11px] font-bold tracking-[0.08em] uppercase transition-all duration-200"
+          style={{
+            background: value === opt.value ? '#C8F135' : 'transparent',
+            color: value === opt.value ? '#000' : '#555',
+          }}
+        >
+          {opt.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function TextInput({
+  placeholder,
+  value,
+  onChange,
+  suffix,
+  type = 'text',
+  inputMode,
+  error,
+  helperText,
+}: {
+  placeholder: string;
+  value: string;
+  onChange: (v: string) => void;
+  suffix?: string;
+  type?: string;
+  inputMode?: React.HTMLAttributes<HTMLInputElement>['inputMode'];
+  error?: string | null;
+  helperText?: string;
+}) {
+  const [focused, setFocused] = useState(false);
+  const borderColor = error ? 'border-[#FF6B6B]' : focused ? 'border-[#C8F135]' : 'border-[#2A2A2A]';
+  const shadowClass = error
+    ? 'shadow-[0_0_0_3px_rgba(255,107,107,0.08)]'
+    : focused
+      ? 'shadow-[0_0_0_3px_rgba(200,241,53,0.07)]'
+      : '';
+  return (
+    <div className="relative">
+      <div
+        className={`relative flex items-center bg-[#1E1E1E] border-[1.5px] rounded-xl transition-all duration-200 ${borderColor} ${shadowClass}`}
+      >
+        <input
+          type={type}
+          inputMode={inputMode}
+          value={value}
+          onChange={e => onChange(e.target.value)}
+          placeholder={placeholder}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
+          className="w-full h-[52px] bg-transparent px-4 text-[15px] font-medium text-white placeholder-[#444] font-sans focus:outline-none"
+          style={{ paddingRight: suffix ? '52px' : undefined, caretColor: '#C8F135' }}
+        />
+        {suffix && (
+          <span className="absolute right-3.5 font-mono text-[10px] font-bold text-[#666] tracking-[0.08em] uppercase pointer-events-none">
+            {suffix}
+          </span>
+        )}
+      </div>
+      {error && <p className="mt-1.5 text-[11px] text-[#FF6B6B] font-sans font-medium">{error}</p>}
+      {!error && helperText && <p className="mt-1.5 text-[11px] text-[#555] font-sans">{helperText}</p>}
+    </div>
+  );
+}
+
+function FtInInput({
+  ft,
+  inch,
+  onFtChange,
+  onInChange,
+  error,
+}: {
+  ft: string;
+  inch: string;
+  onFtChange: (v: string) => void;
+  onInChange: (v: string) => void;
+  error?: string | null;
+}) {
+  const [focusedFt, setFocusedFt] = useState(false);
+  const [focusedIn, setFocusedIn] = useState(false);
+  const borderFt = focusedFt
+    ? 'border-[#C8F135] shadow-[0_0_0_3px_rgba(200,241,53,0.07)]'
+    : error
+      ? 'border-[#FF6B6B]'
+      : 'border-[#2A2A2A]';
+  const borderIn = focusedIn
+    ? 'border-[#C8F135] shadow-[0_0_0_3px_rgba(200,241,53,0.07)]'
+    : error
+      ? 'border-[#FF6B6B]'
+      : 'border-[#2A2A2A]';
+  const cmValue = ftInToCm(ft, inch);
+  const showCmHint = (ft || inch) && cmValue >= VALIDATION.height.min && cmValue <= VALIDATION.height.max;
+  return (
+    <div>
+      <div className="flex gap-2">
+        <div className={`flex-1 relative flex items-center bg-[#1E1E1E] border-[1.5px] rounded-xl transition-all duration-200 ${borderFt}`}>
+          <input
+            type="number"
+            inputMode="numeric"
+            value={ft}
+            onChange={e => onFtChange(e.target.value.replace(/[^\d]/g, ''))}
+            placeholder="5"
+            onFocus={() => setFocusedFt(true)}
+            onBlur={() => setFocusedFt(false)}
+            className="w-full h-[52px] bg-transparent pl-4 pr-12 text-[15px] font-medium text-white placeholder-[#444] font-sans focus:outline-none"
+            style={{ caretColor: '#C8F135' }}
+          />
+          <span className="absolute right-3.5 font-mono text-[10px] font-bold text-[#666] tracking-[0.08em] uppercase">FT</span>
+        </div>
+        <div className={`flex-1 relative flex items-center bg-[#1E1E1E] border-[1.5px] rounded-xl transition-all duration-200 ${borderIn}`}>
+          <input
+            type="number"
+            inputMode="numeric"
+            value={inch}
+            onChange={e => onInChange(e.target.value.replace(/[^\d]/g, ''))}
+            placeholder="10"
+            onFocus={() => setFocusedIn(true)}
+            onBlur={() => setFocusedIn(false)}
+            className="w-full h-[52px] bg-transparent pl-4 pr-12 text-[15px] font-medium text-white placeholder-[#444] font-sans focus:outline-none"
+            style={{ caretColor: '#C8F135' }}
+          />
+          <span className="absolute right-3.5 font-mono text-[10px] font-bold text-[#666] tracking-[0.08em] uppercase">IN</span>
+        </div>
+      </div>
+      {showCmHint && <p className="mt-1.5 text-[11px] text-[#C8F135] font-mono">→ {cmValue} cm</p>}
+      {error && <p className="mt-1.5 text-[11px] text-[#FF6B6B] font-sans font-medium">{error}</p>}
+    </div>
+  );
+}
+
+function Pill({
+  label,
+  sub,
+  selected,
+  onClick,
+  warn = false,
+  disabled = false,
+}: {
+  label: string;
+  sub?: string;
+  selected: boolean;
+  onClick: () => void;
+  warn?: boolean;
+  disabled?: boolean;
+}) {
+  const activeColor = warn ? '#FF6B6B' : '#C8F135';
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      className={`
+        inline-flex transition-all duration-150 active:scale-95
+        ${sub ? 'flex-col items-start gap-0.5 py-2 px-3' : 'flex-row items-center py-2 px-3.5'}
+        ${selected
+          ? warn
+            ? 'bg-[rgba(255,107,107,0.12)] border-[#FF6B6B] shadow-[0_0_10px_rgba(255,107,107,0.12)]'
+            : 'bg-[rgba(200,241,53,0.1)] border-[#C8F135] shadow-[0_0_10px_rgba(200,241,53,0.1)]'
+          : 'bg-[#1E1E1E] border-[#2A2A2A] hover:-translate-y-px'
+        }
+        border-[1.5px] rounded-[10px] cursor-pointer
+        ${disabled ? 'opacity-40 cursor-not-allowed' : ''}
+      `}
+      style={{ WebkitTapHighlightColor: 'transparent' }}
+    >
+      <span
+        className="text-[13px] font-bold font-sans leading-tight tracking-[0.02em]"
+        style={{ color: selected ? activeColor : 'white' }}
+      >
+        {label}
+      </span>
+      {sub && (
+        <span
+          className="font-mono text-[10px] tracking-[0.04em]"
+          style={{
+            color: selected ? (warn ? 'rgba(255,107,107,0.7)' : 'rgba(200,241,53,0.6)') : '#888',
+          }}
+        >
+          {sub}
+        </span>
+      )}
+    </button>
+  );
+}
+
+function PillGroup({
+  options,
+  selected,
+  onSelect,
+  multi = false,
+  warn = false,
+}: {
+  options: { value: string; label: string; sub?: string }[];
+  selected: string | string[];
+  onSelect: (v: string) => void;
+  multi?: boolean;
+  warn?: boolean;
+}) {
+  const isSel = (v: string) => (multi ? (selected as string[]).includes(v) : selected === v);
+  return (
+    <div className="flex flex-wrap gap-1.5 md:gap-2 mb-5">
+      {options.map(opt => (
+        <Pill
+          key={opt.value}
+          label={opt.label}
+          sub={opt.sub}
+          selected={isSel(opt.value)}
+          onClick={() => onSelect(opt.value)}
+          warn={warn}
+        />
+      ))}
+    </div>
+  );
+}
+
+function GoalCard({
+  label,
+  icon,
+  selected,
+  onClick,
+}: {
+  value: string;
+  label: string;
+  icon: string;
+  selected: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`
+        flex flex-col items-center justify-center gap-2.5 py-[18px] px-2
+        transition-all duration-150 active:scale-95
+        ${selected
+          ? 'bg-[rgba(200,241,53,0.08)] border-[#C8F135] shadow-[0_0_18px_rgba(200,241,53,0.1)]'
+          : 'bg-[#1E1E1E] border-[#2A2A2A] hover:-translate-y-px'
+        }
+        border-[1.5px] rounded-2xl cursor-pointer
+      `}
+      style={{ WebkitTapHighlightColor: 'transparent' }}
+    >
+      <span className="text-[22px]" style={{ color: selected ? '#C8F135' : '#888' }}>
+        {icon}
+      </span>
+      <span
+        className={`text-[11px] font-extrabold uppercase tracking-[0.06em] font-sans ${selected ? 'text-[#C8F135]' : 'text-white'
+          }`}
+      >
+        {label}
+      </span>
+    </button>
+  );
+}
+
+function ExperienceCard({
+  value,
+  label,
+  sub,
+  selected,
+  onClick,
+}: {
+  value: string;
+  label: string;
+  sub: string;
+  selected: boolean;
+  onClick: () => void;
+}) {
+  const rank = ({ beginner: 1, intermediate: 2, advanced: 3 } as Record<string, number>)[value] ?? 0;
+  return (
+    <button
+      onClick={onClick}
+      className={`
+        flex-1 min-w-0 flex flex-col gap-2.5 px-3.5 pt-3.5 pb-4 text-left
+        transition-all duration-150 active:scale-[0.97]
+        ${selected
+          ? 'bg-[rgba(200,241,53,0.07)] border-[#C8F135] shadow-[0_0_14px_rgba(200,241,53,0.09)]'
+          : 'bg-[#1E1E1E] border-[#2A2A2A] hover:-translate-y-px'
+        }
+        border-[1.5px] rounded-2xl cursor-pointer
+      `}
+      style={{ WebkitTapHighlightColor: 'transparent' }}
+    >
+      <div className="flex gap-1">
+        {[1, 2, 3].map(i => (
+          <div
+            key={i}
+            className="flex-1 h-[3px] rounded-sm transition-colors duration-200"
+            style={{
+              background: i <= rank ? (selected ? '#C8F135' : '#3A3A3A') : '#242424',
+            }}
+          />
+        ))}
+      </div>
+      <span className={`text-[13px] font-bold font-sans ${selected ? 'text-[#C8F135]' : 'text-white'}`}>
+        {label}
+      </span>
+      <span className="font-mono text-[10px] text-[#888] tracking-[0.06em]">{sub}</span>
+    </button>
+  );
+}
+
+function InfoBanner({ icon, title, body }: { icon: string; title: string; body: string }) {
+  return (
+    <div className="flex gap-3 p-3.5 mb-4 rounded-xl bg-[rgba(200,241,53,0.03)] border border-[rgba(200,241,53,0.12)] border-l-2 border-l-[rgba(200,241,53,0.35)]">
+      <span className="text-[17px] shrink-0">{icon}</span>
+      <div>
+        <div className="text-[11px] font-extrabold text-[#C8F135] mb-1 font-sans tracking-[0.06em] uppercase">
+          {title}
+        </div>
+        <div className="text-[12px] text-[#888] leading-[1.65] font-sans">{body}</div>
+      </div>
+    </div>
+  );
+}
+
+function WarningBanner({ message }: { message: string }) {
+  return (
+    <div className="flex gap-3 p-3.5 mb-4 rounded-xl bg-[rgba(255,200,53,0.05)] border border-[rgba(255,200,53,0.2)] border-l-2 border-l-[rgba(255,200,53,0.5)]">
+      <span className="text-[17px] shrink-0">⚠️</span>
+      <div className="text-[12px] text-[#FFB547] leading-[1.65] font-sans">{message}</div>
+    </div>
+  );
+}
+
+function StyledTextarea({
+  placeholder,
+  value,
+  onChange,
+}: {
+  placeholder: string;
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  const [focused, setFocused] = useState(false);
+  return (
+    <textarea
+      rows={3}
+      value={value}
+      onChange={e => onChange(e.target.value)}
+      placeholder={placeholder}
+      onFocus={() => setFocused(true)}
+      onBlur={() => setFocused(false)}
+      className={`
+        w-full px-4 py-3.5 bg-[#1E1E1E] border-[1.5px] rounded-xl text-[13px] text-white
+        resize-none font-sans leading-[1.65] mb-5 transition-all duration-200 focus:outline-none placeholder-[#444]
+        ${focused ? 'border-[#C8F135] shadow-[0_0_0_3px_rgba(200,241,53,0.06)]' : 'border-[#2A2A2A]'}
+      `}
+      style={{ caretColor: '#C8F135' }}
+    />
+  );
+}
+
+function WorkoutPreview({ form }: { form: FormData }) {
+  const preview = getWorkoutPreview(form);
+  if (!form.goal && !form.experience && !form.focus) return null;
+  return (
+    <div className="mb-6 p-4 rounded-2xl bg-[rgba(200,241,53,0.04)] border border-[rgba(200,241,53,0.15)]">
+      <div className="font-mono text-[9px] text-[#C8F135] tracking-[0.2em] uppercase mb-3">Preview Your Workout</div>
+      <div className="grid grid-cols-3 gap-3">
+        <div className="flex flex-col gap-1">
+          <span className="font-mono text-[9px] text-[#555] tracking-widest uppercase">Duration</span>
+          <span className="text-[12px] font-bold text-white font-sans">{preview.duration}</span>
+        </div>
+        <div className="flex flex-col gap-1">
+          <span className="font-mono text-[9px] text-[#555] tracking-widest uppercase">Difficulty</span>
+          <span className="text-[12px] font-bold text-white font-sans">{preview.difficulty}</span>
+        </div>
+        <div className="flex flex-col gap-1">
+          <span className="font-mono text-[9px] text-[#555] tracking-widest uppercase">Type</span>
+          <span className="text-[12px] font-bold text-white font-sans">{preview.splitType}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function FirstTimeHint() {
+  return (
+    <div className="mb-6 p-4 rounded-2xl border border-dashed border-[#2A2A2A] flex items-center gap-3">
+      <span className="text-xl">🏋️</span>
+      <div>
+        <p className="text-[12px] font-bold text-white font-sans">Takes ~1 min to generate your plan</p>
+        <p className="text-[11px] text-[#555] font-sans">Answer 3 short steps — we'll handle the rest with AI</p>
+      </div>
+    </div>
+  );
+}
+
+function SummaryBar({ form, onJump }: { form: FormData; onJump: (step: number) => void }) {
+  const parts = useMemo(() => getSummaryParts(form), [form]);
+  if (!parts.length) return null;
+  return (
+    <div className="sticky top-0 z-30 bg-[rgba(14,14,14,0.92)] backdrop-blur border-b border-[#1E1E1E] px-5 py-2 flex items-center gap-2 overflow-x-auto hide-scrollbar">
+      <span className="font-mono text-[9px] text-[#444] mr-1 shrink-0 tracking-widest uppercase">Plan:</span>
+      {parts.map((p, i) => (
+        <span key={i} className="flex items-center gap-2 shrink-0">
+          <button
+            onClick={() => onJump(Math.min(i, STEPS.length - 1))}
+            className="text-[11px] font-bold font-sans text-[#C8F135] tracking-wide underline-offset-2 hover:underline"
+          >
+            {p}
+          </button>
+          {i < parts.length - 1 && <span className="text-[#2A2A2A] text-[10px]">•</span>}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Main Workout Component
+// ─────────────────────────────────────────────────────────────────────────────
+export default function Workout() {
+  const navigate = useNavigate();
+  const { session, user } = useAuthContext();
+  const [step, setStep] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [apiError, setApiError] = useState<string | null>(null);
+  const [isFirstTime, setIsFirstTime] = useState(false);
+  const [lastHint, setLastHint] = useState<string | null>(null);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  // Load: 1) user defaults, 2) draft (if any)
+  const [form, setForm] = useState<FormData>(() => {
+    try {
+      const defaultsRaw = localStorage.getItem(LS_DEFAULTS_KEY);
+      if (defaultsRaw) {
+        const defaults = JSON.parse(defaultsRaw);
+        return { ...DEFAULT_FORM, ...defaults };
+      }
+      const draftRaw = localStorage.getItem(LS_DRAFT_KEY);
+      if (draftRaw) return { ...DEFAULT_FORM, ...JSON.parse(draftRaw) };
+    } catch { }
+    return DEFAULT_FORM;
+  });
+
+  // Save draft on every change
+  useEffect(() => {
+    try { localStorage.setItem(LS_DRAFT_KEY, JSON.stringify(form)); } catch { }
+  }, [form]);
+
+  // First-time visitor hint
+  useEffect(() => {
+    const hasVisited = localStorage.getItem('fitforge_visited');
+    if (!hasVisited) { setIsFirstTime(true); localStorage.setItem('fitforge_visited', '1'); }
+  }, []);
+
+  const set = useCallback(<K extends keyof FormData>(key: K, value: FormData[K]) =>
+    setForm(prev => ({ ...prev, [key]: value })), []);
+  const toggleArr = useCallback((key: 'equipment' | 'weak_muscles', value: string) =>
+    setForm(prev => {
+      const arr = prev[key] as string[];
+      return { ...prev, [key]: arr.includes(value) ? arr.filter(x => x !== value) : [...arr, value] };
+    }), []);
+
+  // ── Unit toggles ─────────────────────────────────────────────────────────
+  const handleHeightUnitToggle = useCallback((unit: 'cm' | 'ft') => {
+    setForm(prev => {
+      if (unit === prev.heightUnit) return prev;
+      if (unit === 'ft') {
+        const cm = parseInt(prev.height, 10);
+        if (cm && !isNaN(cm)) {
+          const { ft, inch } = cmToFtIn(cm);
+          return { ...prev, heightUnit: 'ft', heightFt: ft, heightIn: inch };
+        }
+        return { ...prev, heightUnit: 'ft' };
+      } else {
+        const cm = ftInToCm(prev.heightFt, prev.heightIn);
+        return { ...prev, heightUnit: 'cm', height: cm && !isNaN(cm) ? String(cm) : '' };
+      }
+    });
+  }, []);
+
+  const handleFtChange = useCallback((ft: string) => {
+    setForm(prev => {
+      const cm = ftInToCm(ft, prev.heightIn);
+      return { ...prev, heightFt: ft, height: cm > 0 ? String(cm) : '' };
+    });
+  }, []);
+
+  const handleInChange = useCallback((inch: string) => {
+    setForm(prev => {
+      const cm = ftInToCm(prev.heightFt, inch);
+      return { ...prev, heightIn: inch, height: cm > 0 ? String(cm) : '' };
+    });
+  }, []);
+
+  const handleCmChange = useCallback((v: string) => {
+    setForm(prev => ({ ...prev, height: v.replace(/[^\d]/g, '') }));
+  }, []);
+
+  const handleWeightUnitToggle = useCallback((unit: 'kg' | 'lbs') => {
+    setForm(prev => {
+      if (unit === prev.weightUnit) return prev;
+      if (unit === 'lbs') {
+        const kg = parseInt(prev.weight, 10);
+        const lbs = kg && !isNaN(kg) ? String(kgToLbs(kg)) : '';
+        return { ...prev, weightUnit: 'lbs', weightLbs: lbs };
+      } else {
+        const kg = lbsToKg(prev.weightLbs);
+        return { ...prev, weightUnit: 'kg', weight: kg && !isNaN(kg) ? String(kg) : '' };
+      }
+    });
+  }, []);
+
+  const handleWeightKgChange = useCallback((v: string) => {
+    setForm(prev => ({ ...prev, weight: v.replace(/[^\d]/g, '') }));
+  }, []);
+
+  const handleWeightLbsChange = useCallback((v: string) => {
+    const lbs = v.replace(/[^\d]/g, '');
+    setForm(prev => {
+      const kg = lbs ? String(lbsToKg(lbs)) : '';
+      return { ...prev, weightLbs: lbs, weight: kg };
+    });
+  }, []);
+
+  const handleGoalSelect = useCallback((goal: string) => {
+    const defaults = GOAL_SMART_DEFAULTS[goal] ?? {};
+    setForm(prev => ({ ...prev, goal, ...defaults }));
+    setLastHint(SELECTION_HINTS[goal] ?? null);
+  }, []);
+
+  // Validation
+  const ageError = useMemo(() => form.age ? validateNumber(form.age, 'age') : null, [form.age]);
+  const heightError = useMemo(() => form.height ? validateNumber(form.height, 'height') : null, [form.height]);
+  const weightError = useMemo(() => form.weight ? validateNumber(form.weight, 'weight') : null, [form.weight]);
+  const contextWarnings = useMemo(() => getContextWarnings(form), [form]);
+
+  const heightInputError = useMemo(() => {
+    if (form.heightUnit === 'ft') {
+      if (!form.heightFt && !form.heightIn) return null;
+      if (form.heightFt && !form.height) return 'Enter a valid height';
+      return heightError;
+    }
+    return heightError;
+  }, [form.heightUnit, form.heightFt, form.heightIn, form.height, heightError]);
+
+  const weightInputError = useMemo(() => {
+    if (form.weightUnit === 'lbs') {
+      if (!form.weightLbs) return null;
+      return weightError;
+    }
+    return weightError;
+  }, [form.weightUnit, form.weightLbs, weightError]);
+
+  const blockReason = useMemo(() => {
+    if (step === 0) {
+      if (!form.gender) return 'Select your gender to continue';
+      if (!form.age) return 'Enter your age to continue';
+      if (ageError) return ageError;
+      if (!form.height) return 'Enter your height to continue';
+      if (heightInputError) return heightInputError;
+      if (!form.weight) return 'Enter your weight to continue';
+      if (weightInputError) return weightInputError;
+    }
+    if (step === 1) {
+      if (!form.goal) return 'Select your primary goal to continue';
+      if (!form.experience) return 'Select your experience level to continue';
+    }
+    if (step === 2) {
+      if (!form.focus) return 'Select a focus area to continue';
+    }
+    return null;
+  }, [step, form, ageError, heightInputError, weightInputError]);
+
+  const canProceed = !blockReason;
+  const progress = ((step + 1) / STEPS.length) * 100;
+  const stepsLeft = STEPS.length - step - 1;
+  const handleJump = useCallback((targetStep: number) => {
+    if (targetStep < step || !blockReason) setStep(targetStep);
+  }, [step, blockReason]);
+
+  const saveDefaults = useCallback(() => {
+    try {
+      const defaultsToSave: Partial<FormData> = {
+        age: form.age, gender: form.gender, height: form.height, weight: form.weight,
+        goal: form.goal, experience: form.experience, duration: form.duration,
+        focus: form.focus, injuries: form.injuries, cardio: form.cardio,
+        location: form.location, equipment: form.equipment, weak_muscles: form.weak_muscles,
+        intensity_style: form.intensity_style, recovery_level: form.recovery_level,
+        days_per_week: form.days_per_week, custom_note: form.custom_note,
+      };
+      localStorage.setItem(LS_DEFAULTS_KEY, JSON.stringify(defaultsToSave));
+      setToastMessage('✓ Defaults saved – will pre‑fill next time');
+      setTimeout(() => setToastMessage(null), 2500);
+    } catch (e) {
+      setToastMessage('❌ Failed to save defaults');
+      setTimeout(() => setToastMessage(null), 2000);
+    }
+  }, [form]);
+
+  const resetDefaults = useCallback(() => {
+    localStorage.removeItem(LS_DEFAULTS_KEY);
+    setForm(DEFAULT_FORM);
+    setToastMessage('Defaults cleared. Form reset.');
+    setTimeout(() => setToastMessage(null), 2000);
+  }, []);
+
+ const handleGenerate = useCallback(async () => {
+  setApiError(null);
+  setLoading(true);
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 30_000);
+  try {
+    const age = parseInt(form.age, 10);
+    const height = parseInt(form.height, 10);
+    const weight = parseInt(form.weight, 10);
+    if (isNaN(age) || isNaN(height) || isNaN(weight))
+      throw new Error('Please check your body stats — some values are invalid.');
+
+    const body: GenerateWorkoutBody = {
+      age,
+      gender: form.gender.toLowerCase(),
+      height,
+      weight,
+      goal: form.goal,
+      experience: form.experience,
+      workout_duration: Number(form.duration),
+      focus: form.focus,
+      injuries: form.injuries && form.injuries !== 'None' ? [form.injuries] : [],
+      cardio: form.cardio,
+      location: form.location,
+      equipment: form.location === 'home' ? form.equipment : form.location === 'park' ? [] : ['full_gym'],
+      weak_muscles: form.weak_muscles,
+      intensity_style: form.intensity_style,
+      recovery_level: form.recovery_level,
+      days_per_week: Number(form.days_per_week),
+      custom_note: form.custom_note || undefined,
+    };
+
+    // Attach auth data when logged in
+    let opts = undefined;
+    if (session?.access_token && user?.id) {
+      opts = {
+        accessToken: session.access_token,
+        userId: user.id,
+      };
+    }
+
+    const data = await api.generateWorkout(body, opts);
+    saveDefaults();
+    try { localStorage.removeItem(LS_DRAFT_KEY); } catch {}
+    navigate('/result', { state: { workout: data } });
+  } catch (err: unknown) {
+    const msg = err instanceof Error
+      ? (err.name === 'AbortError' ? 'Request timed out. Please try again.' : err.message)
+      : 'Something went wrong. Please try again.';
+    setApiError(msg);
+  } finally {
+    clearTimeout(timeout);
+    setLoading(false);
+  }
+}, [form, navigate, saveDefaults, session, user]);
+
+  // ── Render functions for each step ───────────────────────────────────────
+  const renderStep = () => {
+    switch (step) {
+      case 0:
+        return (
+          <div>
+            {isFirstTime && <FirstTimeHint />}
+            <Label text="Gender" hint="Personalizes your hormonal baseline" />
+            <div className="grid grid-cols-3 gap-2.5 mb-5">
+              {GENDERS.map(g => (
+                <button
+                  key={g.value}
+                  onClick={() => set('gender', g.value)}
+                  className={`flex flex-col items-center gap-2 py-[18px] px-2 border-[1.5px] rounded-2xl transition-all duration-150 active:scale-[0.97] ${form.gender === g.value
+                      ? 'bg-[rgba(200,241,53,0.08)] border-[#C8F135] shadow-[0_0_14px_rgba(200,241,53,0.1)]'
+                      : 'bg-[#1E1E1E] border-[#2A2A2A] hover:-translate-y-px'
+                    }`}
+                >
+                  <span className="text-2xl" style={{ color: form.gender === g.value ? '#C8F135' : '#888' }}>{g.icon}</span>
+                  <span className={`text-[11px] font-extrabold uppercase tracking-[0.07em] font-sans ${form.gender === g.value ? 'text-[#C8F135]' : 'text-white'}`}>
+                    {g.label}
+                  </span>
+                </button>
+              ))}
+            </div>
+
+            <Label text="Age" hint="Calibrates volume & recovery" />
+            <div className="mb-4">
+              <TextInput
+                placeholder="e.g. 25"
+                value={form.age}
+                onChange={v => set('age', v.replace(/\D/g, ''))}
+                suffix="YRS"
+                type="number"
+                inputMode="numeric"
+                error={ageError}
+              />
+            </div>
+
+            {contextWarnings.map((w, i) => <WarningBanner key={i} message={w} />)}
+
+            {/* Height */}
+            <div className="mb-4">
+              <div className="flex items-center justify-between mb-2.5">
+                <span className="font-mono text-[10px] font-bold tracking-[0.16em] uppercase text-[#888]">Height</span>
+                <UnitToggle
+                  options={[{ value: 'cm', label: 'CM' }, { value: 'ft', label: 'FT' }]}
+                  value={form.heightUnit}
+                  onChange={handleHeightUnitToggle}
+                />
+              </div>
+              {form.heightUnit === 'cm' ? (
+                <TextInput
+                  placeholder="e.g. 175"
+                  value={form.height}
+                  onChange={handleCmChange}
+                  suffix="CM"
+                  inputMode="numeric"
+                  error={heightError}
+                />
+              ) : (
+                <FtInInput
+                  ft={form.heightFt}
+                  inch={form.heightIn}
+                  onFtChange={handleFtChange}
+                  onInChange={handleInChange}
+                  error={heightInputError}
+                />
+              )}
+            </div>
+
+            {/* Weight */}
+            <div className="mb-5">
+              <div className="flex items-center justify-between mb-2.5">
+                <span className="font-mono text-[10px] font-bold tracking-[0.16em] uppercase text-[#888]">Weight</span>
+                <UnitToggle
+                  options={[{ value: 'kg', label: 'KG' }, { value: 'lbs', label: 'LBS' }]}
+                  value={form.weightUnit}
+                  onChange={handleWeightUnitToggle}
+                />
+              </div>
+              {form.weightUnit === 'kg' ? (
+                <TextInput
+                  placeholder="e.g. 75"
+                  value={form.weight}
+                  onChange={handleWeightKgChange}
+                  suffix="KG"
+                  inputMode="numeric"
+                  error={weightError}
+                />
+              ) : (
+                <TextInput
+                  placeholder="e.g. 165"
+                  value={form.weightLbs}
+                  onChange={handleWeightLbsChange}
+                  suffix="LBS"
+                  inputMode="numeric"
+                  error={weightInputError}
+                />
+              )}
+            </div>
+
+            <Label text="Training days / week" optional />
+            <div className="flex flex-wrap gap-1.5 mb-5">
+              {DAYS_PER_WEEK.map(d => (
+                <Pill key={d} label={`${d}×`} selected={form.days_per_week === d} onClick={() => set('days_per_week', d)} />
+              ))}
+            </div>
+          </div>
+        );
+
+      case 1:
+        return (
+          <div>
+            <Label text="Primary Goal" hint="The AI builds your entire plan around this" />
+            <div className="grid grid-cols-3 xl:grid-cols-6 gap-2 md:gap-3 mb-3">
+              {GOALS.map(g => (
+                <GoalCard
+                  key={g.value}
+                  value={g.value}
+                  label={g.label}
+                  icon={g.icon}
+                  selected={form.goal === g.value}
+                  onClick={() => handleGoalSelect(g.value)}
+                />
+              ))}
+            </div>
+
+            {lastHint && (
+              <div className="mb-5 px-3 py-2 rounded-lg bg-[rgba(200,241,53,0.05)] border border-[rgba(200,241,53,0.1)]">
+                <p className="text-[11px] text-[#C8F135] font-sans">👉 {lastHint}</p>
+              </div>
+            )}
+
+            <Label text="Experience Level" />
+            <div className="flex gap-2.5 md:gap-3.5 mb-5">
+              {EXPERIENCE.map(e => (
+                <ExperienceCard
+                  key={e.value}
+                  value={e.value}
+                  label={e.label}
+                  sub={e.sub}
+                  selected={form.experience === e.value}
+                  onClick={() => set('experience', e.value)}
+                />
+              ))}
+            </div>
+
+            <Label text="Training Style" optional />
+            <PillGroup
+              options={INTENSITY_OPTS}
+              selected={form.intensity_style}
+              onSelect={v => { set('intensity_style', v); setLastHint(SELECTION_HINTS[v] ?? null); }}
+            />
+
+            <Label text="Focus Area" hint="Primary muscle group" />
+            <PillGroup options={FOCUS_OPTS} selected={form.focus} onSelect={v => set('focus', v)} />
+
+            <Label text="Session Duration" />
+            <div className="flex flex-wrap gap-1.5 mb-5">
+              {DURATIONS.map(d => (
+                <Pill key={d} label={d} sub="min" selected={form.duration === d} onClick={() => set('duration', d)} />
+              ))}
+            </div>
+
+            <WorkoutPreview form={form} />
+          </div>
+        );
+
+      case 2:
+        return (
+          <div>
+            <Label text="Training Location" />
+            <div className="grid grid-cols-3 gap-2.5 mb-5">
+              {LOCATIONS.map(loc => (
+                <button
+                  key={loc.value}
+                  onClick={() => set('location', loc.value)}
+                  className={`flex flex-col gap-1.5 px-3 py-4 text-left border-[1.5px] rounded-2xl transition-all duration-150 active:scale-[0.97] ${form.location === loc.value
+                      ? 'bg-[rgba(200,241,53,0.07)] border-[#C8F135] shadow-[0_0_14px_rgba(200,241,53,0.09)]'
+                      : 'bg-[#1E1E1E] border-[#2A2A2A] hover:-translate-y-px'
+                    }`}
+                >
+                  <span className={`text-[12px] font-extrabold uppercase tracking-[0.05em] font-sans ${form.location === loc.value ? 'text-[#C8F135]' : 'text-white'}`}>
+                    {loc.label}
+                  </span>
+                  <span className="font-mono text-[10px] text-[#888]">{loc.sub}</span>
+                </button>
+              ))}
+            </div>
+
+            {form.location === 'home' && (
+              <>
+                <Label text="Available Equipment" optional />
+                <div className="flex flex-wrap gap-1.5 mb-5">
+                  {EQUIPMENT_OPTS.map(e => (
+                    <Pill
+                      key={e}
+                      label={e}
+                      selected={form.equipment.includes(e)}
+                      onClick={() => toggleArr('equipment', e)}
+                    />
+                  ))}
+                </div>
+              </>
+            )}
+
+            <Label text="Cardio" optional />
+            <PillGroup options={CARDIO_OPTS} selected={form.cardio} onSelect={v => set('cardio', v)} />
+
+            <InfoBanner icon="◈" title="Lagging Muscles" body="Extra targeted volume and exercises for these areas." />
+            <Label text="Select all that apply" optional />
+            <PillGroup
+              options={WEAK_MUSCLES}
+              selected={form.weak_muscles}
+              onSelect={v => toggleArr('weak_muscles', v)}
+              multi
+            />
+
+            <InfoBanner icon="◉" title="Energy Today" body="Adjusts volume, sets, and rest to match how you feel." />
+            <Label text="Current energy level" optional />
+            <PillGroup options={RECOVERY_OPTS} selected={form.recovery_level} onSelect={v => set('recovery_level', v)} />
+
+            <Label text="Injuries / Limitations" optional />
+            <PillGroup
+              options={INJURY_PRESETS.map(i => ({ value: i, label: i }))}
+              selected={form.injuries}
+              onSelect={v => set('injuries', v)}
+              warn
+            />
+
+            <InfoBanner icon="◎" title="Custom Instructions" body='Anything specific — "superset everything", "avoid machines", "add a finisher"' />
+            <Label text="Tell the AI anything" optional />
+            <StyledTextarea
+              placeholder='"Focus on mind-muscle connection, no machines today…"'
+              value={form.custom_note}
+              onChange={v => set('custom_note', v)}
+            />
+
+            <WorkoutPreview form={form} />
+          </div>
+        );
+      default:
+        return null;
+    }
+  };
+  // ── CTAs ─────────────────────────────────────────────────────────────────
+  const nextLabels = ['Next: Set your goal →', 'Next: Session details →'];
+  const CTAContinue = (
+    <div>
+      <button
+        onClick={() => { setApiError(null); setLastHint(null); setStep(s => s + 1); window.scrollTo({ top: 0 }); }}
+        disabled={!canProceed}
+        className={`w-full h-[54px] border-[1.5px] rounded-2xl text-[13px] font-extrabold tracking-[0.1em] uppercase font-sans flex items-center justify-center gap-2.5 transition-all duration-200 ${canProceed
+            ? 'bg-[rgba(200,241,53,0.09)] border-[rgba(200,241,53,0.45)] text-[#C8F135] hover:-translate-y-px active:scale-[0.97]'
+            : 'bg-[#1E1E1E] border-[#2A2A2A] text-[#555] cursor-not-allowed'
+          }`}
+      >
+        {nextLabels[step] ?? 'Continue →'}
+      </button>
+      {canProceed && stepsLeft > 0 && (
+        <p className="mt-2 text-center text-[10px] text-[#444] font-mono tracking-wide">
+          {stepsLeft} step{stepsLeft > 1 ? 's' : ''} left · ~{stepsLeft * 20}s remaining
+        </p>
+      )}
+      {!canProceed && blockReason && <p className="mt-2 text-center text-[11px] text-[#555] font-sans">{blockReason}</p>}
+    </div>
+  );
+
+  const CTAGenerate = (
+    <div>
+      <button
+        onClick={handleGenerate}
+        disabled={loading || !canProceed}
+        className={`w-full h-[58px] rounded-2xl text-[14px] font-black tracking-[0.1em] uppercase font-sans flex items-center justify-center gap-2.5 transition-all duration-200 ${loading || !canProceed
+            ? 'bg-[#1E1E1E] text-[#555] cursor-not-allowed border border-[#2A2A2A]'
+            : 'bg-[#C8F135] text-black shadow-[0_6px_28px_rgba(200,241,53,0.22)] hover:-translate-y-px active:scale-[0.97]'
+          }`}
+      >
+        ⚡ Build My Personalized Workout
+      </button>
+      {!canProceed && blockReason && <p className="mt-2 text-center text-[11px] text-[#555] font-sans">{blockReason}</p>}
+    </div>
+  );
+
+  const isLastStep = step === STEPS.length - 1;
+  const CTA = isLastStep ? CTAGenerate : CTAContinue;
+
+  const MODAL_STEPS = [
+    { label: 'Analyzing your body stats…', icon: '◈' },
+    { label: 'Matching your fitness goal…', icon: '◎' },
+    { label: 'Selecting optimal exercises…', icon: '◆' },
+    { label: 'Balancing intensity & recovery…', icon: '◉' },
+    { label: 'Finalizing your personalized plan…', icon: '⚡' },
+  ];
+
+  // ─────────────────────────────────────────────────────────────────────────
+  return (
+    <>
+      <style>{`
+        @keyframes slideIn { from { opacity:0; transform:translateX(20px); } to { opacity:1; transform:translateX(0); } }
+        @keyframes fadeIn  { from { opacity:0; } to { opacity:1; } }
+        .step-anim { animation: slideIn 0.3s cubic-bezier(0.25,0.46,0.45,0.94); }
+        .fade-anim { animation: fadeIn  0.3s ease; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+      `}</style>
+      <LoadingModal
+        isOpen={loading}
+        steps={MODAL_STEPS}
+        title="Building your personalized workout"
+        subtitle="Our AI is crafting a plan tailored just for you"
+        intervalMs={1800}
+        showCompletionEffect
+      />
+      {toastMessage && (
+        <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 bg-[#C8F135] text-black px-4 py-2 rounded-full text-xs font-bold shadow-lg animate-fade-in-out">
+          {toastMessage}
+        </div>
+      )}
+      <div className="min-h-svh bg-[#0E0E0E] text-white font-sans">
+        <div className="grid grid-cols-1 md:grid-cols-[300px_1fr]">
+          {/* Desktop sidebar */}
+          <aside className="hidden md:flex flex-col justify-between px-8 py-10 border-r border-[#242424] sticky top-0 h-svh overflow-hidden">
+            <div>
+              <div className="mb-10 tracking-[0.1em] text-[#C8F135] text-3xl font-black">FORGE</div>
+              <div className="fade-anim">
+                <div className="font-mono text-[10px] text-[#888] tracking-[0.18em] uppercase mb-2">
+                  {STEPS[step].index} — {STEPS[step].sub}
+                </div>
+                <h1 className="text-5xl font-black leading-[0.88] text-white mb-4 break-words">{STEPS[step].title}</h1>
+                <div className="w-9 h-0.5 bg-[#C8F135] rounded-sm mb-7" />
+                <div className="flex flex-col gap-3">
+                  {STEPS.map((s, i) => (
+                    <button
+                      key={s.id}
+                      onClick={() => i < step ? setStep(i) : undefined}
+                      className={`flex items-center gap-3 ${i < step ? 'cursor-pointer' : 'cursor-default'}`}
+                    >
+                      <div className={`w-7 h-7 rounded-full flex items-center justify-center border-[1.5px] transition-all ${i < step ? 'bg-[#C8F135] border-[#C8F135]' : i === step ? 'bg-[rgba(200,241,53,0.12)] border-[#C8F135]' : 'bg-[#1E1E1E] border-[#2A2A2A]'}`}>
+                        {i < step ? <span className="text-black text-[12px] font-black">✓</span> : <span className="font-mono text-[9px] font-bold" style={{ color: i === step ? '#C8F135' : '#555' }}>{s.index}</span>}
+                      </div>
+                      <div className="text-left">
+                        <div className="text-[12px] font-sans transition-colors duration-200" style={{ fontWeight: i === step ? 700 : 500, color: i === step ? '#fff' : i < step ? '#C8F135' : '#888' }}>
+                          {s.title}{i < step && <span className="ml-1.5 font-mono text-[9px] text-[#555]">← edit</span>}
+                        </div>
+                        {i === step && <div className="font-mono text-[10px] text-[#555] tracking-[0.05em] mt-0.5">{s.sub}</div>}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+                <div className="mt-6 text-[10px] font-mono text-[#555]">⏱ {STEPS[step].time} to complete this step</div>
+              </div>
+            </div>
+            <div className="flex flex-col gap-2.5">
+              <div className="flex gap-2 mb-1">
+                <button onClick={saveDefaults} className="flex-1 py-2 text-[11px] font-mono uppercase tracking-wider rounded-full border border-[#C8F135]/40 text-[#C8F135] hover:bg-[#C8F135]/10 transition">💾 Save as Default</button>
+                <button onClick={resetDefaults} className="flex-1 py-2 text-[11px] font-mono uppercase tracking-wider rounded-full border border-gray-700 text-gray-400 hover:bg-gray-800 transition">↺ Reset</button>
+              </div>
+              {apiError && <ErrorCard message={apiError} onRetry={handleGenerate} />}
+              {CTA}
+              {step > 0 && (
+                <button onClick={() => setStep(s => s - 1)} className="w-full h-11 bg-transparent border border-[#2A2A2A] rounded-xl text-[#888] text-[12px] font-semibold font-sans flex items-center justify-center gap-1.5 transition-all hover:border-[#444] hover:text-white">
+                  ← Back
+                </button>
+              )}
+            </div>
+          </aside>
+
+          {/* Main column */}
+          <div className="flex flex-col min-h-svh">
+            {/* Mobile top bar */}
+            <div className="md:hidden sticky top-0 z-50 bg-[rgba(14,14,14,0.93)] backdrop-blur border-b border-[#242424]">
+              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#242424]"><div className="h-full bg-[#C8F135] transition-all duration-500" style={{ width: `${progress}%` }} /></div>
+              <div className="flex items-center justify-between h-[60px] px-5">
+                <button onClick={() => step > 0 ? setStep(s => s - 1) : navigate('/')} className="w-9 h-9 bg-[#1E1E1E] border border-[#2A2A2A] rounded-xl flex items-center justify-center text-white text-xl">‹</button>
+                <span className="tracking-[0.08em] text-[#C8F135] text-xl font-black">FORGE</span>
+                <div className="text-right">
+                  <div className="font-mono text-[11px] text-[#888]">{String(step + 1).padStart(2, '0')}/{STEPS.length}</div>
+                  <div className="font-mono text-[9px] text-[#555]">{stepsLeft > 0 ? `~${stepsLeft * 20}s left` : 'Last step'}</div>
+                </div>
+              </div>
+              <div className="flex gap-2 px-4 pb-2">
+                <button onClick={saveDefaults} className="flex-1 text-[10px] py-1.5 rounded-full bg-[#C8F135]/10 border border-[#C8F135]/30 text-[#C8F135] font-mono uppercase tracking-wider">💾 Save as Default</button>
+                <button onClick={resetDefaults} className="flex-1 text-[10px] py-1.5 rounded-full bg-gray-800 border border-gray-700 text-gray-400 font-mono uppercase tracking-wider">↺ Reset</button>
+              </div>
+            </div>
+
+            <SummaryBar form={form} onJump={handleJump} />
+
+            {/* Scrollable content */}
+            <div className="flex-1 overflow-y-auto px-5 pt-7 pb-3 sm:px-8 sm:pt-8 md:px-12 md:pt-11">
+              <div className="md:hidden mb-7 step-anim">
+                <div className="flex gap-1.5 mb-4">{STEPS.map((_, i) => <div key={i} className="h-0.5 rounded-sm transition-all" style={{ width: i === step ? 18 : 6, background: i <= step ? '#C8F135' : '#242424', opacity: i < step ? 0.4 : 1 }} />)}</div>
+                <div className="font-mono text-[10px] text-[#888] tracking-[0.18em] uppercase mb-2">{STEPS[step].index} — {STEPS[step].sub}</div>
+                <h1 className="text-6xl font-black leading-[0.9] text-white">{STEPS[step].title}</h1>
+              </div>
+              <div className="hidden md:block mb-9 step-anim">
+                <div className="font-mono text-[10px] text-[#555] tracking-[0.18em] uppercase mb-2">// Fill in the details below</div>
+                <div className="w-8 h-0.5 bg-[#C8F135] rounded-sm" />
+              </div>
+              {apiError && <div className="md:hidden"><ErrorCard message={apiError} onRetry={handleGenerate} /></div>}
+              <div className="step-anim">{renderStep()}</div>
+            </div>
+
+            {/* Mobile sticky footer */}
+            <div className="md:hidden sticky bottom-0 z-40 bg-[rgba(14,14,14,0.96)] backdrop-blur border-t border-[#242424] px-5 pt-4 pb-5">{CTA}</div>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}

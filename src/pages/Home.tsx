@@ -102,7 +102,6 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-black text-white font-sans">
       {/* Fixed Navbar – adjusted for announcement bar (top: 56px) */}
-      <Navbar />
 
       {/* Main content – adds padding top to account for fixed header (56px bar + 64px nav = 120px) */}
       <main className="pt-[120px] md:pt-[120px]">

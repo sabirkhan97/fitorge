@@ -161,7 +161,7 @@ export default function WorkoutResult() {
     try {
       const stored = localStorage.getItem('fitforge:lastWorkout');
       if (stored) setPlan(JSON.parse(stored));
-    } catch {}
+    } catch { }
   }, [location.state]);
 
   const handleBack = () => navigate(-1);
@@ -177,7 +177,7 @@ export default function WorkoutResult() {
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
       }
-    } catch {}
+    } catch { }
   };
 
   if (!plan) {
@@ -231,33 +231,40 @@ export default function WorkoutResult() {
             >
               {plan.difficulty}
             </span>
-            <span className="text-[10px] font-mono text-gray-500">{plan.hero_stats.training_split}</span>
+            <span className="text-[10px] font-mono text-gray-500">{plan.hero_stats?.training_split}</span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-black mb-2 tracking-tight">{plan.title}</h1>
           <p className="text-sm text-gray-400 mb-4">{plan.subtitle}</p>
           <div className="flex flex-wrap gap-3 text-xs text-gray-400 mb-5">
             <span>⏱ {plan.estimated_duration} min</span>
             <span>🔥 ~{plan.calories_estimate} cal</span>
-            <span>🎯 {plan.focus.primary}</span>
+            <span>🎯 {plan.focus?.primary}</span>
           </div>
           {/* Stats grid - responsive */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-6">
             <StatCard label="Duration" value={`${plan.estimated_duration}m`} />
             <StatCard label="Calories" value={`~${plan.calories_estimate}`} />
-            <StatCard label="Exercises" value={plan.hero_stats.total_exercises} />
-            <StatCard label="Total Sets" value={plan.hero_stats.total_sets} />
+            <StatCard label="Exercises" value={plan.hero_stats?.total_exercises} />
+            <StatCard label="Total Sets" value={plan.hero_stats?.total_sets} />
           </div>
         </div>
 
         {/* Warmup */}
         <SectionHeader title="Warm-up" icon="🔥" />
         <div className="space-y-2 mb-6">
-          {plan.warmup.map((item, i) => (
-            <div key={i} className="flex justify-between items-center py-2 px-3 bg-white/5 rounded-lg border border-white/5">
-              <span className="text-sm text-gray-200">{item.name}</span>
-              <span className="text-xs font-mono text-gray-500">{item.duration}</span>
-            </div>
-          ))}
+          {
+            plan ? (
+              <div className="text-sm text-gray-500 italic">No warm-up exercises. You're ready to go!</div>
+            ) : (
+
+              plan?.warmup.map((item, i) => (
+                <div key={i} className="flex justify-between items-center py-2 px-3 bg-white/5 rounded-lg border border-white/5">
+                  <span className="text-sm text-gray-200">{item.name}</span>
+                  <span className="text-xs font-mono text-gray-500">{item.duration}</span>
+                </div>
+              ))
+            )
+          }
         </div>
 
         {/* Exercises */}
@@ -278,16 +285,16 @@ export default function WorkoutResult() {
         <SectionHeader title="Finisher" icon="⚡" />
         <div className="bg-white/5 rounded-xl p-4 border border-white/10 mb-6">
           <div className="flex justify-between items-start mb-2">
-            <h3 className="font-bold text-white">{plan.finisher.name}</h3>
-            <span className="text-[10px] font-mono text-gray-500">{plan.finisher.duration}</span>
+            <h3 className="font-bold text-white">{plan?.finisher?.name}</h3>
+            <span className="text-[10px] font-mono text-gray-500">{plan?.finisher?.duration}</span>
           </div>
-          <p className="text-sm text-gray-400">{plan.finisher.description}</p>
+          <p className="text-sm text-gray-400">{plan?.finisher?.description}</p>
         </div>
 
         {/* Cooldown */}
         <SectionHeader title="Cool-down" icon="🧘" />
         <div className="space-y-2 mb-6">
-          {plan.cooldown.map((item, i) => (
+          {plan?.cooldown?.map((item, i) => (
             <div key={i} className="flex justify-between items-center py-2 px-3 bg-white/5 rounded-lg border border-white/5">
               <span className="text-sm text-gray-200">{item.name}</span>
               <span className="text-xs font-mono text-gray-500">{item.duration}</span>
@@ -300,22 +307,22 @@ export default function WorkoutResult() {
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
           <div className="bg-white/5 p-3 rounded-xl border border-white/10">
             <div className="text-[#C8F135] text-xs font-bold mb-1">Main Benefit</div>
-            <p className="text-sm text-gray-300">{plan.summary.main_benefit}</p>
+            <p className="text-sm text-gray-300">{plan?.summary?.main_benefit}</p>
           </div>
           <div className="bg-white/5 p-3 rounded-xl border border-white/10">
             <div className="text-[#47C8FF] text-xs font-bold mb-1">Recovery</div>
-            <p className="text-sm text-gray-300">{plan.summary.recovery_tip}</p>
+            <p className="text-sm text-gray-300">{plan?.summary?.recovery_tip}</p>
           </div>
           <div className="bg-white/5 p-3 rounded-xl border border-white/10">
             <div className="text-[#B47CFF] text-xs font-bold mb-1">Next Focus</div>
-            <p className="text-sm text-gray-300">{plan.summary.next_focus}</p>
+            <p className="text-sm text-gray-300">{plan?.summary?.next_focus}</p>
           </div>
         </div>
 
         {/* Muscle tags */}
         <SectionHeader title="Muscles Trained" icon="🎯" />
         <div className="flex flex-wrap gap-2">
-          {Array.from(new Set(plan.exercises.map(e => e.muscle_group))).map(muscle => {
+          {Array.from(new Set(plan?.exercises?.map(e => e.muscle_group))).map(muscle => {
             const color = getMuscleColor(muscle);
             return (
               <span
