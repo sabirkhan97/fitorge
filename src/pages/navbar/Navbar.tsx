@@ -103,7 +103,7 @@ if (authLoading) {
         buttonLink="/workout"
         bgColor="#C8F135"
         textColor="#000"
-        dismissible={true}
+        dismissible={false}
       />
       <nav className="fixed top-7 left-0 right-0 z-50 bg-black/90 backdrop-blur-md border-b border-gray-800">
 
@@ -149,7 +149,7 @@ if (authLoading) {
                     >
                       Workout
                     </button>
-                    <button onClick={handleLogout} className="text-[10px] border border-gray-700 px-2 py-1 rounded-full">
+                    <button onClick={handleLogout} className="text-[10px] border text-gray-200 border-gray-700 px-2 py-1 rounded-full">
                       Logout
                     </button>
                   </div>
