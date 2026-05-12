@@ -158,7 +158,7 @@ if (authLoading) {
                     <button onClick={() => navigate('/login')} className="text-[10px] bg-[#C8F135] text-black font-bold px-2 py-1 rounded-full">
                       Login
                     </button>
-                    <button onClick={() => navigate('/signup')} className="text-[10px] border border-gray-700 px-2 py-1 rounded-full">
+                    <button onClick={() => navigate('/signup')} className="text-[10px] border text-gray-200 border-gray-700 px-2 py-1 rounded-full">
                       Sign Up
                     </button>
                   </div>
