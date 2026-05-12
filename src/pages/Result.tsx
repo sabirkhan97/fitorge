@@ -338,7 +338,7 @@ export default function WorkoutResult() {
       </main>
 
       {/* Sticky footer – fully responsive */}
-      <div className="fixed bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black via-black/90 to-transparent">
+      <div className="fixed bottom-0 left-0 right-0 p-4 bg-linear-to-t from-black via-black/90 to-transparent">
         <div className="max-w-2xl mx-auto flex gap-3">
           <button
             onClick={handleBack}
