@@ -1,6 +1,6 @@
 import { useNavigate, useLocation } from 'react-router-dom';
-import { supabase } from '../../lib/supabase'; // adjust path as needed
-import { useAuthContext } from '../../context/AuthContext'; // adjust path
+import { supabase } from '../../lib/supabase'; 
+import { useAuthContext } from '../../context/AuthContext'; 
 import { useState, useEffect } from 'react';
 import { FitOrge } from '../../image/Icons';
 import AnnouncementBar from '../../components/AnnouncementBar';
@@ -110,7 +110,7 @@ if (authLoading) {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             {/* Logo */}
-            <button onClick={() => navigate('/')} className="flex-shrink-0 focus:outline-none">
+            <button onClick={() => navigate('/')} className="shrink-0 focus:outline-none">
               <div className="text-2xl font-black text-[#C8F135]" style={{ fontFamily: "'Bebas Neue', sans-serif" }}>
                 <FitOrge height={40} />
               </div>
